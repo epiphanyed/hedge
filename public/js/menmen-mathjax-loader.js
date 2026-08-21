@@ -4,6 +4,7 @@
   var loaded = false
   var queue = []
   var hubQueue = []
+  var realHub = null
 
   function serverBase () {
     if (window.config && window.config.serverURL) return window.config.serverURL
@@ -12,9 +13,13 @@
   }
 
   function installHubQueue () {
+    if (loaded) return
     if (!window.MathJax) window.MathJax = {}
     window.MathJax.Hub = {
       Queue: function () {
+        if (loaded && realHub && typeof realHub.Queue === 'function') {
+          return realHub.Queue.apply(realHub, arguments)
+        }
         hubQueue.push(Array.prototype.slice.call(arguments))
         if (!loaded && !loading) {
           window.menmenEnsureMathJax(flushHubQueue)
@@ -30,12 +35,11 @@
   installHubQueue()
 
   function flushHubQueue () {
-    if (!loaded || !window.MathJax || !window.MathJax.Hub) return
-    if (typeof window.MathJax.Hub.Queue !== 'function') return
+    if (!loaded || !realHub || typeof realHub.Queue !== 'function') return
     while (hubQueue.length) {
       var args = hubQueue.shift()
       try {
-        window.MathJax.Hub.Queue.apply(window.MathJax.Hub, args)
+        realHub.Queue.apply(realHub, args)
       } catch (e) {
         console.warn('menmen: MathJax Hub.Queue replay failed', e)
       }
@@ -43,10 +47,10 @@
   }
 
   function typesetPending () {
-    if (!window.MathJax || !window.MathJax.Hub) return
+    if (!loaded || !realHub) return
     var nodes = document.querySelectorAll('#doc span.mathjax')
     if (!nodes.length) return
-    window.MathJax.Hub.Queue(['Typeset', window.MathJax.Hub, Array.prototype.slice.call(nodes)])
+    realHub.Queue(['Typeset', realHub, Array.prototype.slice.call(nodes)])
   }
 
   function flushQueue () {
@@ -65,7 +69,7 @@
   }
 
   window.menmenEnsureMathJax = function (cb) {
-    if (loaded && window.MathJax && window.MathJax.Hub) {
+    if (loaded && realHub) {
       if (cb) cb()
       return
     }
@@ -87,11 +91,13 @@
         return chain.then(function () { return loadScript(src) })
       }, Promise.resolve())
     }).then(function () {
+      realHub = window.MathJax && window.MathJax.Hub ? window.MathJax.Hub : null
       loaded = true
       flushHubQueue()
       flushQueue()
     }).catch(function (err) {
       loading = false
+      realHub = null
       hubQueue = []
       installHubQueue()
       console.warn('menmen: MathJax load failed', err)
