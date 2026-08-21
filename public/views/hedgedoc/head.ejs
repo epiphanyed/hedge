@@ -5,6 +5,9 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="mobile-web-app-capable" content="yes">
 <%- include('../includes/favicon') %>
+<% if (typeof menmenCustomUI !== 'undefined' && menmenCustomUI) { %>
+<link rel="stylesheet" href="<%- serverURL %>/css/menmen-custom.css?v=<%= menmenAssetVersion || '2026082115' %>">
+<% } %>
 <% for (var og in opengraph) { %>
 <% if (opengraph.hasOwnProperty(og) && String(opengraph[og]).trim() !== '') { %>
 <meta property="og:<%= og %>" content="<%= String(opengraph[og]) %>">

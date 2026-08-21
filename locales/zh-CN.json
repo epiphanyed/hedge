@@ -126,5 +126,16 @@
     "Protected - Only owner can edit (forbid guests)": "保护 - 仅所有者可编辑（禁止游客查看）",
     "Private - Only owner can view & edit": "私有 - 仅所有者可查看与编辑",
     "changed": "已修改",
-    "created": "已创建"
+    "created": "已创建",
+    "Table of Contents": "目录",
+    "Expand all": "展开全部",
+    "Collapse all": "收起全部",
+    "Back to top": "回到顶部",
+    "Go to bottom": "跳到底部",
+    "Expand or collapse section": "展开/收起",
+    "Collapse table of contents": "折叠目录",
+    "Expand table of contents": "展开目录",
+    "%s more online": "另有 %s 人在线",
+    "Fullscreen": "全屏",
+    "Exit fullscreen": "退出全屏"
 }

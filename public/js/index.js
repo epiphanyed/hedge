@@ -23,6 +23,8 @@ import { Spinner } from 'spin.js'
 
 import _ from 'lodash'
 
+import '../css/menmen-custom.css'
+
 import List from 'list.js'
 
 import {
@@ -681,12 +683,14 @@ $(document).ready(function () {
     return true
   }
   key('ctrl+alt+e', function (e) {
+    if (menmenReadonly) return
     changeMode(modeType.edit)
   })
   key('ctrl+alt+v', function (e) {
     changeMode(modeType.view)
   })
   key('ctrl+alt+b', function (e) {
+    if (menmenReadonly) return
     changeMode(modeType.both)
   })
   // toggle-dropdown
@@ -965,6 +969,79 @@ function checkTocStyle () {
   }
 }
 
+let menmenReadonly = false
+
+function applyMenmenReadonly () {
+  menmenReadonly = true
+  $('body').addClass('menmen-readonly')
+  if (typeof editor !== 'undefined' && editor) {
+    editor.setOption('readOnly', true)
+  }
+  if (typeof changeMode === 'function') {
+    changeMode(modeType.view)
+  }
+}
+
+const MENMEN_AVATAR_VISIBLE = 5
+
+/** 仅展示当前笔记内、未 idle 的协作者（socket 已按 note 房间隔离） */
+function filterMenmenOnlineUsers (list) {
+  return deduplicateOnlineUsers(list || []).filter(function (user) {
+    if (!user || !user.name) return false
+    if (!user.idle) return true
+    return !!user.login
+  })
+}
+
+function appendMenmenLetterAvatar (group, user, label) {
+  const letter = (user.name || '?').charAt(0).toUpperCase()
+  const el = $('<span class="menmen-letter-avatar"></span>').text(letter).attr('title', label)
+  if (user.color) el.css('background-color', user.color)
+  group.append(el)
+}
+
+function buildMenmenAvatarGroupElement (list) {
+  const visible = list.slice(0, MENMEN_AVATAR_VISIBLE)
+  const extra = list.length - visible.length
+  const group = $('<span class="menmen-avatar-group"></span>')
+  visible.forEach(function (user) {
+    const label = user.name || ''
+    if (user.photo) {
+      const img = $('<img>').attr('src', user.photo).attr('alt', label).attr('title', label)
+      img.on('error', function () {
+        appendMenmenLetterAvatar(group, user, label)
+        $(this).remove()
+      })
+      group.append(img)
+    } else {
+      appendMenmenLetterAvatar(group, user, label)
+    }
+  })
+  if (extra > 0) {
+    group.append($('<span class="menmen-avatar-more"></span>').text('+' + extra).attr('title', extra + ' more'))
+  }
+  return group
+}
+
+function renderMenmenAvatarGroup (users) {
+  $('.menmen-avatar-group').remove()
+  const list = filterMenmenOnlineUsers(users)
+  const $listItem = $('#online-user-list')
+  const $shortList = $('#short-online-user-list')
+  if (!list.length) {
+    ui.toolbar.status.html('')
+    ui.toolbar.shortStatus.html('')
+    $listItem.hide()
+    $shortList.hide()
+    return
+  }
+  $listItem.show()
+  $shortList.show()
+  const group = buildMenmenAvatarGroupElement(list)
+  ui.toolbar.status.html('').append(group.clone(true))
+  ui.toolbar.shortStatus.html('').append(group.clone(true))
+}
+
 function showStatus (type, num) {
   currentStatus = type
   const shortStatus = ui.toolbar.shortStatus
@@ -976,6 +1053,19 @@ function showStatus (type, num) {
 
   shortStatus.html('')
   status.html('')
+
+  if ($('body').hasClass('menmen-custom-ui')) {
+    if (currentStatus === statusType.offline) {
+      $('#online-user-list, #short-online-user-list').hide()
+    } else {
+      $('#online-user-list, #short-online-user-list').show()
+      window.__menmenOnlineUsers = onlineUsers
+      try {
+        document.dispatchEvent(new CustomEvent('menmen-online-users', { detail: onlineUsers }))
+      } catch (e) { /* ignore */ }
+    }
+    return
+  }
 
   switch (currentStatus) {
     case statusType.connected:
@@ -1007,6 +1097,7 @@ function showStatus (type, num) {
 }
 
 function toggleMode () {
+  if (menmenReadonly) return
   switch (appState.currentMode) {
     case modeType.edit:
       changeMode(modeType.view)
@@ -1023,6 +1114,9 @@ function toggleMode () {
 let lastMode = null
 
 function changeMode (type) {
+  if (menmenReadonly && type && type !== modeType.view) {
+    type = modeType.view
+  }
   // lock navbar to prevent it hide after changeMode
   lockNavbar()
   saveInfo()
@@ -2260,6 +2354,9 @@ socket.on('connect', function (data) {
   showStatus(statusType.connected)
   socket.emit('version')
 })
+socket.on('menmen-permission-denied', function () {
+  applyMenmenReadonly()
+})
 socket.on('version', function (data) {
   if (version !== data.version) {
     if (version < data.minimumCompatibleVersion) {
@@ -2570,7 +2667,9 @@ socket.on('refresh', function (data) {
   if (!window.loaded) {
     // auto change mode if no content detected
     const nocontent = editor.getValue().length <= 0
-    if (nocontent) {
+    if (menmenReadonly) {
+      appState.currentMode = modeType.view
+    } else if (nocontent) {
       if (visibleXS) {
         appState.currentMode = modeType.edit
       } else {
@@ -2578,7 +2677,7 @@ socket.on('refresh', function (data) {
       }
     }
     // parse mode from url
-    if (window.location.search.length > 0) {
+    if (!menmenReadonly && window.location.search.length > 0) {
       const urlMode = modeType[window.location.search.substr(1)]
       if (urlMode) appState.currentMode = urlMode
     }
@@ -2590,6 +2689,7 @@ socket.on('refresh', function (data) {
     updateViewInner() // bring up view rendering earlier
     updateHistory() // update history whether have content or not
     window.loaded = true
+    $('body').addClass('menmen-custom-ui')
     emitUserStatus() // send first user status
     updateOnlineStatus() // update first online status
     setTimeout(function () {
@@ -2599,7 +2699,9 @@ socket.on('refresh', function (data) {
       scrollToHash()
     }, 1)
   }
-  if (editor.getOption('readOnly')) {
+  if (menmenReadonly) {
+    editor.setOption('readOnly', true)
+  } else if (editor.getOption('readOnly')) {
     editor.setOption('readOnly', false)
   }
 })
@@ -2690,6 +2792,7 @@ socket.on('online users', function (data) {
     console.debug(data)
   }
   onlineUsers = data.users
+  window.__menmenOnlineUsers = data.users
   updateOnlineStatus()
   $('.CodeMirror-other-cursors')
     .children()
@@ -2949,6 +3052,12 @@ function deduplicateOnlineUsers (list) {
           if (!user.idle) {
             _onlineUsers[j].idle = user.idle
             _onlineUsers[j].color = user.color
+          }
+          if (user.photo && !_onlineUsers[j].photo) {
+            _onlineUsers[j].photo = user.photo
+          }
+          if (user.login) {
+            _onlineUsers[j].login = user.login
           }
           found = true
           break

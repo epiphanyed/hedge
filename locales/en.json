@@ -126,5 +126,16 @@
     "Protected - Only owner can edit (forbid guests)": "Protected - Only owner can edit (forbid guests)",
     "Private - Only owner can view & edit": "Private - Only owner can view & edit",
     "changed": "changed",
-    "created": "created"
+    "created": "created",
+    "Table of Contents": "Table of Contents",
+    "Expand all": "Expand all",
+    "Collapse all": "Collapse all",
+    "Back to top": "Back to top",
+    "Go to bottom": "Go to bottom",
+    "Expand or collapse section": "Expand or collapse section",
+    "Collapse table of contents": "Collapse table of contents",
+    "Expand table of contents": "Expand table of contents",
+    "%s more online": "%s more online",
+    "Fullscreen": "Fullscreen",
+    "Exit fullscreen": "Exit fullscreen"
 }

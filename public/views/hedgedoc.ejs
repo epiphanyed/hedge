@@ -5,7 +5,7 @@
     <%- include('hedgedoc/head') %>
 </head>
 
-<body translate="no">
+<body translate="no"<% if (typeof menmenCustomUI !== 'undefined' && menmenCustomUI) { %> class="menmen-custom-ui"<% } %>>
     <%- include('hedgedoc/header') %>
     <%- include('hedgedoc/body') %>
     <%- include('hedgedoc/footer') %>

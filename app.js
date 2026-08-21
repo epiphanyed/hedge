@@ -247,7 +247,10 @@ app.locals.authProviders = {
 app.locals.enableDropBoxSave = config.isDropboxEnable
 app.locals.enableGitHubGist = config.isGitHubEnable
 app.locals.enableGitlabSnippets = config.isGitlabSnippetsEnable
+app.locals.menmenCustomUI = config.menmen && config.menmen.customUI
+app.locals.menmenAssetVersion = (config.menmen && config.menmen.assetVersion) || '2026082115'
 
+app.use(require('./lib/menmen-routes'))
 app.use(require('./lib/web/baseRouter'))
 app.use(require('./lib/web/statusRouter'))
 app.use(require('./lib/web/auth'))
