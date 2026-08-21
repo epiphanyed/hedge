@@ -2,7 +2,8 @@
 <script nonce="<%= cspNonce %>">window.__menmenI18n = <%- JSON.stringify(menmenI18n) %>;</script>
 <% } %>
 <script nonce="<%= cspNonce %>">window.__menmenNeedsMathJax = <%= (typeof menmenNeedsMathJax !== 'undefined' && menmenNeedsMathJax) ? 'true' : 'false' %>;</script>
-<script src="<%- serverURL %>/js/menmen-mathjax-loader.js?v=<%= menmenAssetVersion || '2026082116' %>" defer></script>
+<script nonce="<%= cspNonce %>">(function(){if(!window.MathJax)window.MathJax={};if(!window.MathJax.Hub){window.__menmenHubPending=[];window.MathJax.Hub={Queue:function(){window.__menmenHubPending.push([].slice.call(arguments))}}}})();</script>
+<script src="<%- serverURL %>/js/menmen-mathjax-loader.js?v=<%= menmenAssetVersion || '2026082118' %>" defer></script>
 <%- include('../build/index-pack-scripts') %>
 <% if (typeof menmenCustomUI !== 'undefined' && menmenCustomUI) { %>
 <script src="<%- serverURL %>/js/menmen-online.js?v=<%= menmenAssetVersion || '2026082116' %>" defer></script>

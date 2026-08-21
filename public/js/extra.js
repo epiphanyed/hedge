@@ -522,15 +522,29 @@ export function finishView (view) {
     // mathjax
   const mathjaxdivs = view.find('span.mathjax.raw').removeClass('raw').toArray()
   try {
-    if (mathjaxdivs.length > 1) {
-      window.MathJax.Hub.Queue(['Typeset', window.MathJax.Hub, mathjaxdivs])
-      window.MathJax.Hub.Queue(window.viewAjaxCallback)
-    } else if (mathjaxdivs.length > 0) {
-      window.MathJax.Hub.Queue(['Typeset', window.MathJax.Hub, mathjaxdivs[0]])
-      window.MathJax.Hub.Queue(window.viewAjaxCallback)
+    const queueMathJax = function () {
+      if (!window.MathJax || !window.MathJax.Hub) {
+        if (window.viewAjaxCallback) window.viewAjaxCallback()
+        return
+      }
+      if (mathjaxdivs.length > 1) {
+        window.MathJax.Hub.Queue(['Typeset', window.MathJax.Hub, mathjaxdivs])
+        window.MathJax.Hub.Queue(window.viewAjaxCallback)
+      } else if (mathjaxdivs.length > 0) {
+        window.MathJax.Hub.Queue(['Typeset', window.MathJax.Hub, mathjaxdivs[0]])
+        window.MathJax.Hub.Queue(window.viewAjaxCallback)
+      }
+    }
+    if (mathjaxdivs.length > 0) {
+      if (typeof window.menmenEnsureMathJax === 'function') {
+        window.menmenEnsureMathJax(queueMathJax)
+      } else {
+        queueMathJax()
+      }
     }
   } catch (err) {
     console.warn(err)
+    if (window.viewAjaxCallback) window.viewAjaxCallback()
   }
   // render title
   document.title = renderTitle(view)

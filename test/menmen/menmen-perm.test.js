@@ -181,4 +181,30 @@ describe('menmen-perm', function () {
     assert.strictEqual(await menmenPerm.checkCanEdit('a_1', 'user1'), null)
     assert.strictEqual(menmenPerm.isEnabled(), false)
   })
+
+  it('TC-P1-U15 project description: admin only', async function () {
+    const pool = createMockPool(function (sql) {
+      if (sql.includes('FROM sys_user WHERE')) return [{ id: 10 }]
+      if (sql.includes('COUNT(1)')) return [{ cnt: 0 }]
+      if (sql.includes('access_mode')) return [{ access_mode: 0 }]
+      if (sql.includes('description_article_id')) return [{ projectId: 5 }]
+      if (sql.includes('sgu.role IN (0, 2)')) return [{ ok: 1 }]
+      throw new Error('unexpected: ' + sql)
+    })
+    menmenPerm._setPoolForTests(pool)
+    assert.strictEqual(await menmenPerm.checkCanEdit('a_99', 'projadmin'), true)
+  })
+
+  it('TC-P1-U16 project description: member with write denied', async function () {
+    const pool = createMockPool(function (sql) {
+      if (sql.includes('FROM sys_user WHERE')) return [{ id: 11 }]
+      if (sql.includes('COUNT(1)')) return [{ cnt: 0 }]
+      if (sql.includes('access_mode')) return [{ access_mode: 0 }]
+      if (sql.includes('description_article_id')) return [{ projectId: 5 }]
+      if (sql.includes('sgu.role IN (0, 2)')) return [{ ok: 0 }]
+      throw new Error('should not reach group write: ' + sql)
+    })
+    menmenPerm._setPoolForTests(pool)
+    assert.strictEqual(await menmenPerm.checkCanEdit('a_99', 'member'), false)
+  })
 })
