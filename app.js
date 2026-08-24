@@ -248,7 +248,7 @@ app.locals.enableDropBoxSave = config.isDropboxEnable
 app.locals.enableGitHubGist = config.isGitHubEnable
 app.locals.enableGitlabSnippets = config.isGitlabSnippetsEnable
 app.locals.menmenCustomUI = config.menmen && config.menmen.customUI
-app.locals.menmenAssetVersion = (config.menmen && config.menmen.assetVersion) || '2026082115'
+app.locals.menmenAssetVersion = (config.menmen && config.menmen.assetVersion) || '2026082503'
 
 app.use(require('./lib/menmen-routes'))
 app.use(require('./lib/web/baseRouter'))
@@ -257,6 +257,7 @@ app.use(require('./lib/web/auth'))
 app.use(require('./lib/web/historyRouter'))
 app.use(require('./lib/web/userRouter'))
 app.use(require('./lib/web/imageRouter'))
+app.use(require('./lib/web/manimRouter'))
 app.use(require('./lib/web/note/router'))
 
 // response not found if no any route matxches

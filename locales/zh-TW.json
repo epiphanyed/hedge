@@ -137,5 +137,8 @@
     "Expand table of contents": "展開目錄",
     "%s more online": "另有 %s 人在線",
     "Fullscreen": "全屏",
-    "Exit fullscreen": "退出全屏"
+    "Exit fullscreen": "退出全屏",
+    "View layout": "視圖",
+    "Centered": "置中",
+    "Wide": "Wide"
 }

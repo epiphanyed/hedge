@@ -137,5 +137,8 @@
     "Expand table of contents": "Expand table of contents",
     "%s more online": "%s more online",
     "Fullscreen": "Fullscreen",
-    "Exit fullscreen": "Exit fullscreen"
+    "Exit fullscreen": "Exit fullscreen",
+    "View layout": "View layout",
+    "Centered": "Centered",
+    "Wide": "Wide"
 }

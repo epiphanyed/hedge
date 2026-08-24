@@ -76,6 +76,7 @@ describe('menmen-perm', function () {
       if (sql.includes('FROM sys_user WHERE')) return [{ id: 3 }]
       if (sql.includes('COUNT(1)')) return [{ cnt: 0 }]
       if (sql.includes('access_mode')) return [{ access_mode: 0 }]
+      if (sql.includes('description_article_id')) return []
       if (sql.includes('sys_project_node')) return [{ ok: 1 }]
       throw new Error('unexpected: ' + sql)
     })
@@ -88,6 +89,7 @@ describe('menmen-perm', function () {
       if (sql.includes('FROM sys_user WHERE')) return [{ id: 5 }]
       if (sql.includes('COUNT(1)')) return [{ cnt: 0 }]
       if (sql.includes('access_mode')) return [{ access_mode: 0 }]
+      if (sql.includes('description_article_id')) return []
       if (sql.includes('sys_project_node')) return [{ ok: 1 }]
       throw new Error('unexpected: ' + sql)
     })
@@ -100,6 +102,7 @@ describe('menmen-perm', function () {
       if (sql.includes('FROM sys_user WHERE')) return [{ id: 6 }]
       if (sql.includes('COUNT(1)')) return [{ cnt: 0 }]
       if (sql.includes('access_mode')) return [{ access_mode: 0 }]
+      if (sql.includes('description_article_id')) return []
       if (sql.includes('sys_project_node')) return [{ ok: 0 }]
       if (sql.includes('sys_user_article')) return [{ ok: 1 }]
       throw new Error('unexpected: ' + sql)
@@ -113,6 +116,7 @@ describe('menmen-perm', function () {
       if (sql.includes('FROM sys_user WHERE')) return [{ id: 8 }]
       if (sql.includes('COUNT(1)')) return [{ cnt: 0 }]
       if (sql.includes('access_mode')) return [{ access_mode: 0 }]
+      if (sql.includes('description_article_id')) return []
       if (sql.includes('sys_project_node')) return [{ ok: 0 }]
       if (sql.includes('sys_user_article')) return [{ ok: 0 }]
       if (sql.includes('sys_group_article')) return [{ ok: 0 }]
@@ -127,6 +131,7 @@ describe('menmen-perm', function () {
       if (sql.includes('FROM sys_user WHERE')) return [{ id: 4 }]
       if (sql.includes('COUNT(1)')) return [{ cnt: 0 }]
       if (sql.includes('access_mode')) return [{ access_mode: 0 }]
+      if (sql.includes('description_article_id')) return []
       if (sql.includes('sys_project_node')) return [{ ok: 0 }]
       if (sql.includes('sys_user_article')) return [{ ok: 0 }]
       if (sql.includes('sys_group_article')) return [{ ok: 1 }]
@@ -159,6 +164,7 @@ describe('menmen-perm', function () {
         return [{ cnt: 0 }]
       }
       if (sql.includes('access_mode')) return [{ access_mode: 0 }]
+      if (sql.includes('description_article_id')) return []
       if (sql.includes('sys_project_node')) return [{ ok: 1 }]
       return [{ ok: 0 }]
     })

@@ -415,3 +415,190 @@ small .dropdown a:focus, small .dropdown a:hover {
         font-size: 12px !important;
     }
 }
+
+.manim-container {
+  border: 1px solid #3c3c3c;
+  border-radius: 8px;
+  background: #1e1e1e;
+  color: #d4d4d4;
+  margin: 1em 0;
+  overflow: hidden;
+  font-family: "Segoe UI", system-ui, sans-serif;
+}
+
+.manim-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid #3c3c3c;
+  background: #252526;
+}
+
+.manim-title {
+  display: block;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.manim-subtitle {
+  display: block;
+  font-size: 12px;
+  color: #9da5b4;
+  margin-top: 4px;
+}
+
+.manim-tabs {
+  display: flex;
+  gap: 8px;
+}
+
+.manim-tab-btn {
+  border: 1px solid #3c3c3c;
+  background: #2d2d2d;
+  color: #cccccc;
+  border-radius: 4px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.manim-tab-btn.active {
+  background: #0e639c;
+  border-color: #1177bb;
+  color: #ffffff;
+}
+
+.manim-content {
+  padding: 12px;
+}
+
+.manim-video-wrapper video {
+  width: 100%;
+  max-height: 720px;
+  background: #000;
+  border-radius: 4px;
+}
+
+.manim-footer {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #858585;
+}
+
+.manim-loading,
+.manim-error {
+  min-height: 160px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 16px;
+}
+
+.manim-spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid #3c3c3c;
+  border-top-color: #0e639c;
+  border-radius: 50%;
+  animation: manim-spin 0.8s linear infinite;
+}
+
+@keyframes manim-spin {
+  to { transform: rotate(360deg); }
+}
+
+.manim-error-title {
+  color: #f48771;
+  font-weight: 600;
+}
+
+.manim-error-body {
+  width: 100%;
+  max-height: 240px;
+  overflow: auto;
+  background: #111;
+  border-radius: 4px;
+  padding: 12px;
+  white-space: pre-wrap;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 12px;
+}
+
+.manim-retry-btn {
+  border: none;
+  background: #0e639c;
+  color: #fff;
+  border-radius: 4px;
+  padding: 6px 14px;
+  cursor: pointer;
+}
+
+.manim-tab-panel.tab-source pre,
+.manim-tab-panel.tab-source pre.manim-source-pre {
+  margin: 0;
+  background: #111;
+  border-radius: 4px;
+  padding: 12px;
+  overflow: auto;
+}
+
+.manim-tab-panel.tab-source pre code.hljs {
+  display: block;
+  background: transparent;
+  padding: 0;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 13px;
+  line-height: 1.55;
+  color: #d4d4d4;
+  white-space: pre;
+}
+
+.manim-container .tab-source .hljs-keyword,
+.manim-container .tab-source .hljs-selector-tag {
+  color: #569cd6;
+}
+
+.manim-container .tab-source .hljs-built_in,
+.manim-container .tab-source .hljs-type {
+  color: #4ec9b0;
+}
+
+.manim-container .tab-source .hljs-string,
+.manim-container .tab-source .hljs-regexp {
+  color: #ce9178;
+}
+
+.manim-container .tab-source .hljs-comment,
+.manim-container .tab-source .hljs-quote {
+  color: #6a9955;
+  font-style: italic;
+}
+
+.manim-container .tab-source .hljs-number,
+.manim-container .tab-source .hljs-literal {
+  color: #b5cea8;
+}
+
+.manim-container .tab-source .hljs-title,
+.manim-container .tab-source .hljs-function,
+.manim-container .tab-source .hljs-title.function_ {
+  color: #dcdcaa;
+}
+
+.manim-container .tab-source .hljs-class .hljs-title,
+.manim-container .tab-source .hljs-title.class_ {
+  color: #4ec9b0;
+}
+
+.manim-container .tab-source .hljs-params,
+.manim-container .tab-source .hljs-variable,
+.manim-container .tab-source .hljs-attr {
+  color: #9cdcfe;
+}
+
+.manim-container .tab-source .hljs-meta {
+  color: #9cdcfe;
+}
+

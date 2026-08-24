@@ -1,4 +1,4 @@
-/* menmen: Menu 左侧全屏按钮 */
+/* menmen: Menu 左侧全屏按钮（仅控制全屏） */
 (function () {
   var mounted = false
   var bootTries = 0

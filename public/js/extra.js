@@ -8,6 +8,7 @@ import { saveAs } from 'file-saver'
 import escapeHTML from 'escape-html'
 
 import getUIElements from './lib/editor/ui-elements'
+import { manimHighlightRender, processManimBlocks, exportManimBlocks } from './menmen-manim'
 
 import markdownit from 'markdown-it'
 import markdownitContainer from 'markdown-it-container'
@@ -415,6 +416,8 @@ export function finishView (view) {
       console.warn(err)
     }
   })
+  // manim
+  processManimBlocks(view)
   // image href new window(emoji not included)
   const images = view.find('img.raw[src]').removeClass('raw')
   images.each((key, value) => {
@@ -656,6 +659,7 @@ function generateCleanHTML (view) {
       $(value).html(iframe)
     }
   })
+  exportManimBlocks(src)
   return src
 }
 
@@ -989,6 +993,8 @@ function highlightRender (code, lang) {
   } else if (lang === 'abc') {
     return `<div class="abc raw">${code}</div>`
   }
+  const manimHtml = manimHighlightRender(code, lang)
+  if (manimHtml) return manimHtml
   const result = {
     value: code
   }

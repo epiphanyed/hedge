@@ -19,7 +19,7 @@
   display: none !important;
 }
 
-/* Menu 左侧：全屏 */
+/* Menu 左侧：全屏（仅全屏） */
 .menmen-custom-ui .menmen-fullscreen-item {
   display: list-item;
 }
@@ -42,6 +42,78 @@
   font-size: 16px;
   width: 16px;
   text-align: center;
+}
+
+/* 月亮左侧：视图布局下拉（居中 / wide） */
+.menmen-custom-ui .menmen-view-layout-group {
+  margin-right: 0;
+}
+
+.menmen-custom-ui .menmen-view-layout-btn {
+  padding-left: 10px;
+  padding-right: 10px;
+}
+
+.menmen-custom-ui .menmen-view-layout-menu {
+  min-width: 120px;
+  background: #fff;
+}
+
+.menmen-custom-ui .menmen-view-layout-menu > li > a,
+.menmen-custom-ui .navbar-nav .open .menmen-view-layout-menu > li > a,
+.navbar-default .navbar-nav .open .menmen-view-layout-menu > li > a {
+  color: #222 !important;
+  background: transparent !important;
+}
+
+.menmen-custom-ui .menmen-view-layout-menu > li > a:hover,
+.menmen-custom-ui .menmen-view-layout-menu > li > a:focus,
+.menmen-custom-ui .navbar-nav .open .menmen-view-layout-menu > li > a:hover,
+.navbar-default .navbar-nav .open .menmen-view-layout-menu > li > a:hover {
+  color: #111 !important;
+  background: #f0f0f0 !important;
+}
+
+.menmen-custom-ui .menmen-view-layout-menu > li.menmen-layout-selected > a,
+.menmen-custom-ui .navbar-nav .open .menmen-view-layout-menu > li.menmen-layout-selected > a,
+.navbar-default .navbar-nav .open .menmen-view-layout-menu > li.menmen-layout-selected > a,
+.navbar-default .navbar-nav .open .menmen-view-layout-menu > li.menmen-layout-selected > a:hover,
+.navbar-default .navbar-nav .open .menmen-view-layout-menu > li.menmen-layout-selected > a:focus {
+  color: #111 !important;
+  background: #e6e6e6 !important;
+  font-weight: 600;
+}
+
+.night.menmen-custom-ui .menmen-view-layout-menu {
+  background: #2d2d2d;
+}
+
+.night.menmen-custom-ui .menmen-view-layout-menu > li > a,
+.night .navbar-nav .open .menmen-view-layout-menu > li > a {
+  color: #eee !important;
+  background: transparent !important;
+}
+
+.night.menmen-custom-ui .menmen-view-layout-menu > li.menmen-layout-selected > a,
+.night .navbar-nav .open .menmen-view-layout-menu > li.menmen-layout-selected > a {
+  color: #fff !important;
+  background: #444 !important;
+}
+
+/* 预览宽屏：正文突破 758px（目录改为悬浮窗，不再预留右侧空白） */
+body.menmen-preview-wide .ui-view-area .markdown-body {
+  max-width: none !important;
+  width: 100%;
+  box-sizing: border-box;
+  padding-left: 28px;
+  padding-right: 28px;
+}
+
+@media (max-width: 991px) {
+  body.menmen-preview-wide .ui-view-area .markdown-body {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
 }
 
 /* 无编辑权：隐藏预览/分栏/编辑切换，只保留查看 */
@@ -135,24 +207,48 @@ body.menmen-readonly .toolbar {
   border-color: #2d2d2d;
 }
 
-/* —— 右侧目录：整体折叠 —— */
-.menmen-custom-ui #ui-toc-affix,
+/* —— 目录悬浮窗（可拖动，覆盖编辑/预览区） —— */
+.menmen-custom-ui .ui-view-area > .ui-toc {
+  display: none !important;
+}
+
+.menmen-custom-ui #ui-toc-affix.menmen-toc-float,
 .menmen-custom-ui #ui-toc.ui-toc-dropdown {
   background: #fff;
   border: 1px solid #e0e0e0;
   border-radius: 6px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
   padding-top: 0;
 }
 
-.menmen-custom-ui #ui-toc-affix {
-  min-width: 160px;
+body.menmen-custom-ui > #ui-toc-affix.menmen-toc-float,
+.menmen-custom-ui #ui-toc-affix.menmen-toc-float {
+  position: fixed !important;
+  z-index: 10050;
+  width: 220px !important;
+  min-width: 200px;
+  max-width: min(280px, 36vw);
+  max-height: min(70vh, 520px);
+  overflow: auto;
+  margin: 0 !important;
+  right: auto !important;
+}
+
+.menmen-custom-ui #ui-toc-affix.menmen-toc-float:has(.toc) {
+  display: block !important;
+}
+
+.menmen-custom-ui #ui-toc-affix.menmen-toc-dragging {
+  opacity: 0.92;
+  user-select: none;
+  cursor: grabbing;
 }
 
 .menmen-toc-panel-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 6px;
   padding: 8px 10px 6px;
   border-bottom: 1px solid #eee;
   background: #fafafa;
@@ -160,12 +256,31 @@ body.menmen-readonly .toolbar {
   position: sticky;
   top: 0;
   z-index: 2;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+  -webkit-user-drag: none;
+}
+
+.menmen-toc-panel-grip {
+  flex: 0 0 auto;
+  color: #aaa;
+  font-size: 12px;
+  line-height: 1;
+  cursor: grab;
+}
+
+.menmen-toc-panel-head:active,
+.menmen-toc-dragging .menmen-toc-panel-head {
+  cursor: grabbing;
 }
 
 .menmen-toc-panel-title {
+  flex: 1;
   font-size: 13px;
   font-weight: 600;
   color: #444;
+  min-width: 0;
 }
 
 .menmen-toc-panel-collapse {
@@ -181,11 +296,12 @@ body.menmen-readonly .toolbar {
   color: #333;
 }
 
-.menmen-custom-ui #ui-toc-affix.menmen-toc-panel-collapsed,
+.menmen-custom-ui #ui-toc-affix.menmen-toc-float.menmen-toc-panel-collapsed,
 .menmen-custom-ui #ui-toc.menmen-toc-panel-collapsed {
   min-width: 0 !important;
   width: auto !important;
   max-width: none !important;
+  max-height: none;
   padding: 0;
   overflow: visible;
   background: transparent;

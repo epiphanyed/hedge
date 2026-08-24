@@ -5,8 +5,11 @@
 <script nonce="<%= cspNonce %>">(function(){if(!window.MathJax)window.MathJax={};if(!window.MathJax.Hub){window.__menmenHubPending=[];window.MathJax.Hub={Queue:function(){window.__menmenHubPending.push([].slice.call(arguments))}}}})();</script>
 <script src="<%- serverURL %>/js/menmen-mathjax-loader.js?v=<%= menmenAssetVersion || '2026082120' %>" defer></script>
 <%- include('../build/index-pack-scripts') %>
-<% if (typeof menmenCustomUI !== 'undefined' && menmenCustomUI) { %>
-<script src="<%- serverURL %>/js/menmen-online.js?v=<%= menmenAssetVersion || '2026082116' %>" defer></script>
-<script src="<%- serverURL %>/js/menmen-toc.js?v=<%= menmenAssetVersion || '2026082116' %>" defer></script>
-<script src="<%- serverURL %>/js/menmen-fullscreen.js?v=<%= menmenAssetVersion || '2026082116' %>" defer></script>
+<% if (typeof menmenCustomUI !== 'undefined' && menmenCustomUI) {
+  var menmenJsVersion = menmenAssetVersion || '2026082503';
+%>
+<script src="<%- serverURL %>/js/menmen-online.js?v=<%= menmenJsVersion %>" defer></script>
+<script src="<%- serverURL %>/js/menmen-toc.js?v=<%= menmenJsVersion %>" defer></script>
+<script src="<%- serverURL %>/js/menmen-fullscreen.js?v=<%= menmenJsVersion %>" defer></script>
+<script src="<%- serverURL %>/js/menmen-view-layout.js?v=<%= menmenJsVersion %>" defer></script>
 <% } %>
