@@ -12,12 +12,21 @@
     return base ? base.href.replace(/\/$/, '') : ''
   }
 
+  function isRealHub (hub) {
+    return hub && typeof hub.Queue === 'function' && !hub.__menmenStub
+  }
+
   function installHubQueue () {
     if (loaded) return
     if (!window.MathJax) window.MathJax = {}
+    if (isRealHub(window.MathJax.Hub)) {
+      realHub = window.MathJax.Hub
+      return
+    }
     window.MathJax.Hub = {
+      __menmenStub: true,
       Queue: function () {
-        if (loaded && realHub && typeof realHub.Queue === 'function') {
+        if (isRealHub(realHub)) {
           return realHub.Queue.apply(realHub, arguments)
         }
         hubQueue.push(Array.prototype.slice.call(arguments))
@@ -28,6 +37,22 @@
     }
   }
 
+  function removeStubHub () {
+    if (window.MathJax && window.MathJax.Hub && window.MathJax.Hub.__menmenStub) {
+      delete window.MathJax.Hub
+    }
+  }
+
+  function captureRealHub () {
+    var hub = window.MathJax && window.MathJax.Hub
+    if (!isRealHub(hub)) {
+      return false
+    }
+    realHub = hub
+    loaded = true
+    return true
+  }
+
   if (window.__menmenHubPending && window.__menmenHubPending.length) {
     hubQueue = hubQueue.concat(window.__menmenHubPending)
     window.__menmenHubPending = []
@@ -35,7 +60,7 @@
   installHubQueue()
 
   function flushHubQueue () {
-    if (!loaded || !realHub || typeof realHub.Queue !== 'function') return
+    if (!isRealHub(realHub)) return
     while (hubQueue.length) {
       var args = hubQueue.shift()
       try {
@@ -47,7 +72,7 @@
   }
 
   function typesetPending () {
-    if (!loaded || !realHub) return
+    if (!isRealHub(realHub)) return
     var nodes = document.querySelectorAll('#doc span.mathjax')
     if (!nodes.length) return
     realHub.Queue(['Typeset', realHub, Array.prototype.slice.call(nodes)])
@@ -69,7 +94,7 @@
   }
 
   window.menmenEnsureMathJax = function (cb) {
-    if (loaded && realHub) {
+    if (loaded && isRealHub(realHub)) {
       if (cb) cb()
       return
     }
@@ -86,19 +111,20 @@
     ]
 
     loadScript(configSrc).then(function () {
-      installHubQueue()
+      removeStubHub()
       return scripts.reduce(function (chain, src) {
         return chain.then(function () { return loadScript(src) })
       }, Promise.resolve())
     }).then(function () {
-      realHub = window.MathJax && window.MathJax.Hub ? window.MathJax.Hub : null
-      loaded = true
+      if (!captureRealHub()) {
+        throw new Error('MathJax Hub unavailable after script load')
+      }
       flushHubQueue()
       flushQueue()
     }).catch(function (err) {
       loading = false
+      loaded = false
       realHub = null
-      hubQueue = []
       installHubQueue()
       console.warn('menmen: MathJax load failed', err)
       if (window.viewAjaxCallback) window.viewAjaxCallback()

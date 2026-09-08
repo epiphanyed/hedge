@@ -248,7 +248,7 @@ app.locals.enableDropBoxSave = config.isDropboxEnable
 app.locals.enableGitHubGist = config.isGitHubEnable
 app.locals.enableGitlabSnippets = config.isGitlabSnippetsEnable
 app.locals.menmenCustomUI = config.menmen && config.menmen.customUI
-app.locals.menmenAssetVersion = (config.menmen && config.menmen.assetVersion) || '2026082503'
+app.locals.menmenAssetVersion = (config.menmen && config.menmen.assetVersion) || '2026090721'
 
 app.use(require('./lib/menmen-routes'))
 app.use(require('./lib/web/baseRouter'))

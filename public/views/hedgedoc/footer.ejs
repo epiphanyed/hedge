@@ -2,8 +2,13 @@
 <script nonce="<%= cspNonce %>">window.__menmenI18n = <%- JSON.stringify(menmenI18n) %>;</script>
 <% } %>
 <script nonce="<%= cspNonce %>">window.__menmenNeedsMathJax = <%= (typeof menmenNeedsMathJax !== 'undefined' && menmenNeedsMathJax) ? 'true' : 'false' %>;</script>
-<script nonce="<%= cspNonce %>">(function(){if(!window.MathJax)window.MathJax={};if(!window.MathJax.Hub){window.__menmenHubPending=[];window.MathJax.Hub={Queue:function(){window.__menmenHubPending.push([].slice.call(arguments))}}}})();</script>
-<script src="<%- serverURL %>/js/menmen-mathjax-loader.js?v=<%= menmenAssetVersion || '2026082120' %>" defer></script>
+<% if (typeof menmenNeedsMathJax !== 'undefined' && menmenNeedsMathJax) { %>
+<link rel="preload" href="<%- serverURL %>/build/fonts/HTML-CSS/TeX/woff/MathJax_Main-Regular.woff?V=2.7.9" as="font" type="font/woff" crossorigin="anonymous">
+<link rel="preload" href="<%- serverURL %>/build/fonts/HTML-CSS/TeX/woff/MathJax_Math-Italic.woff?V=2.7.9" as="font" type="font/woff" crossorigin="anonymous">
+<link rel="preload" href="<%- serverURL %>/build/fonts/HTML-CSS/TeX/woff/MathJax_Size1-Regular.woff?V=2.7.9" as="font" type="font/woff" crossorigin="anonymous">
+<% } %>
+<script nonce="<%= cspNonce %>">(function(){window.__menmenHubPending=window.__menmenHubPending||[];if(!window.MathJax)window.MathJax={};if(!window.MathJax.Hub||window.MathJax.Hub.__menmenStub){window.MathJax.Hub={__menmenStub:true,Queue:function(){window.__menmenHubPending.push([].slice.call(arguments))}};}})();</script>
+<script src="<%- serverURL %>/js/menmen-mathjax-loader.js?v=<%= menmenAssetVersion || '2026090721' %>" defer></script>
 <%- include('../build/index-pack-scripts') %>
 <% if (typeof menmenCustomUI !== 'undefined' && menmenCustomUI) {
   var menmenJsVersion = menmenAssetVersion || '2026082503';
