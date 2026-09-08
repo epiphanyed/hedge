@@ -633,7 +633,9 @@ $(document).ready(function () {
   checkResponsive()
   // if in smaller screen, we don't need advanced scrollbar
   let scrollbarStyle
-  if (visibleXS) {
+  if ($('body').hasClass('menmen-custom-ui')) {
+    scrollbarStyle = 'native'
+  } else if (visibleXS) {
     scrollbarStyle = 'native'
   } else {
     scrollbarStyle = 'overlay'
@@ -2690,6 +2692,11 @@ socket.on('refresh', function (data) {
     updateHistory() // update history whether have content or not
     window.loaded = true
     $('body').addClass('menmen-custom-ui')
+    if (editor.getOption('scrollbarStyle') !== 'native') {
+      editor.setOption('scrollbarStyle', 'native')
+      clearMap()
+      checkEditorStyle()
+    }
     emitUserStatus() // send first user status
     updateOnlineStatus() // update first online status
     setTimeout(function () {

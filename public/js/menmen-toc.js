@@ -22,6 +22,7 @@
     var enhancing = false
     var dragging = false
     var listenersBound = false
+    var headTouchBound = false
     var cssGuardInstalled = false
     var startX = 0
     var startY = 0
@@ -193,13 +194,10 @@
     function bindDragListeners () {
       if (listenersBound) return
       listenersBound = true
-      var opts = { capture: true, passive: false }
       document.addEventListener('pointerdown', onPointerDown, true)
       document.addEventListener('mousedown', onPointerDown, true)
-      document.addEventListener('touchstart', onPointerDown, opts)
-      window.addEventListener('pointermove', onPointerMove, opts)
-      window.addEventListener('mousemove', onPointerMove, opts)
-      window.addEventListener('touchmove', onPointerMove, opts)
+      window.addEventListener('pointermove', onPointerMove, true)
+      window.addEventListener('mousemove', onPointerMove, true)
       window.addEventListener('pointerup', onPointerUp, true)
       window.addEventListener('mouseup', onPointerUp, true)
       window.addEventListener('touchend', onPointerUp, true)
@@ -209,6 +207,17 @@
         if (!el || !el.classList.contains(FLOAT_CLASS) || dragging) return
         applySavedPosition(el)
       })
+    }
+
+    /** 仅在 TOC 标题栏绑定 touch 监听，避免 document 级 non-passive 触发 Chrome Violation */
+    function bindHeadTouchListeners (el) {
+      if (headTouchBound || !el) return
+      var head = el.querySelector('.menmen-toc-panel-head')
+      if (!head) return
+      headTouchBound = true
+      var touchOpts = { passive: false }
+      head.addEventListener('touchstart', onPointerDown, touchOpts)
+      head.addEventListener('touchmove', onPointerMove, touchOpts)
     }
 
     function disableBootstrapAffix (el) {
@@ -239,6 +248,7 @@
       if (!dragging) applySavedPosition(el)
       el.style.setProperty('display', 'block', 'important')
       bindDragListeners()
+      bindHeadTouchListeners(el)
     }
 
     function applyTocMenuI18n ($root) {
