@@ -17,7 +17,9 @@
     var OPEN = 'menmen-toc-open'
     var PANEL_COLLAPSED = 'menmen-toc-panel-collapsed'
     var FLOAT_CLASS = 'menmen-toc-float'
-    var POS_KEY = 'menmen-toc-pos'
+    /** v2：按 right 锚定；丢弃旧 left 坐标，避免展开后右侧裁切 */
+    var POS_KEY = 'menmen-toc-pos-v2'
+    var EDGE = 8
     var DRAG_THRESHOLD = 4
     var enhancing = false
     var dragging = false
@@ -71,16 +73,35 @@
       }
     }
 
+    function viewportWidth () {
+      return Math.max(
+        document.documentElement ? document.documentElement.clientWidth : 0,
+        window.innerWidth || 0
+      )
+    }
+
+    function viewportHeight () {
+      return Math.max(
+        document.documentElement ? document.documentElement.clientHeight : 0,
+        window.innerHeight || 0
+      )
+    }
+
     function getDragBounds (el) {
-      var panelW = (el && el.offsetWidth) || 220
-      var panelH = (el && el.offsetHeight) || 48
+      var panelW = Math.max((el && el.offsetWidth) || 220, 36)
+      var panelH = Math.max((el && el.offsetHeight) || 48, 36)
       var nav = document.querySelector('.navbar-fixed-top')
-      var minTop = nav ? Math.round(nav.getBoundingClientRect().bottom) + 8 : 8
+      var minTop = nav ? Math.round(nav.getBoundingClientRect().bottom) + EDGE : EDGE
+      var vw = viewportWidth()
+      var vh = viewportHeight()
       return {
-        minLeft: 8,
-        maxLeft: Math.max(8, window.innerWidth - panelW - 8),
+        minLeft: EDGE,
+        maxLeft: Math.max(EDGE, vw - panelW - EDGE),
         minTop: minTop,
-        maxTop: Math.max(minTop, window.innerHeight - panelH - 8)
+        maxTop: Math.max(minTop, vh - panelH - EDGE),
+        edge: EDGE,
+        vw: vw,
+        vh: vh
       }
     }
 
@@ -88,13 +109,40 @@
       return Math.min(Math.max(val, min), max)
     }
 
-    function setPanelBox (el, left, top) {
+    /**
+     * 休息态：用 right + top 锚定。
+     * 宽度变化时右边缘不动，展开向左变宽，不会超出屏幕右侧。
+     */
+    function pinPanelRight (el, right, top) {
       if (!el) return
-      el.style.setProperty('left', Math.round(left) + 'px', 'important')
-      el.style.setProperty('top', Math.round(top) + 'px', 'important')
+      var bounds = getDragBounds(el)
+      var safeRight = clamp(
+        typeof right === 'number' ? right : EDGE,
+        EDGE,
+        Math.max(EDGE, bounds.vw - EDGE - 36)
+      )
+      var safeTop = clamp(
+        typeof top === 'number' ? top : bounds.minTop,
+        bounds.minTop,
+        bounds.maxTop
+      )
+      el.style.setProperty('position', 'fixed', 'important')
+      el.style.setProperty('left', 'auto', 'important')
+      el.style.setProperty('right', Math.round(safeRight) + 'px', 'important')
+      el.style.setProperty('top', Math.round(safeTop) + 'px', 'important')
+      el.style.setProperty('margin', '0', 'important')
+      el.style.setProperty('bottom', 'auto', 'important')
+    }
+
+    /** 拖拽过程：临时 left + top，便于跟手 */
+    function setPanelBoxLeft (el, left, top) {
+      if (!el) return
+      var bounds = getDragBounds(el)
+      el.style.setProperty('position', 'fixed', 'important')
+      el.style.setProperty('left', Math.round(clamp(left, bounds.minLeft, bounds.maxLeft)) + 'px', 'important')
+      el.style.setProperty('top', Math.round(clamp(top, bounds.minTop, bounds.maxTop)) + 'px', 'important')
       el.style.setProperty('right', 'auto', 'important')
       el.style.setProperty('margin', '0', 'important')
-      el.style.setProperty('position', 'fixed', 'important')
     }
 
     function loadPosition () {
@@ -102,7 +150,7 @@
         var raw = sessionStorage.getItem(POS_KEY)
         if (!raw) return null
         var pos = JSON.parse(raw)
-        if (typeof pos.left !== 'number' || typeof pos.top !== 'number') return null
+        if (typeof pos.right !== 'number' || typeof pos.top !== 'number') return null
         return pos
       } catch (err) {
         return null
@@ -112,9 +160,10 @@
     function savePosition (el) {
       if (!el) return
       var rect = el.getBoundingClientRect()
+      var vw = viewportWidth()
       try {
         sessionStorage.setItem(POS_KEY, JSON.stringify({
-          left: Math.round(rect.left),
+          right: Math.round(clamp(vw - rect.right, EDGE, vw - EDGE - 36)),
           top: Math.round(rect.top)
         }))
       } catch (err) { /* ignore */ }
@@ -124,16 +173,22 @@
       if (!el || dragging) return
       var bounds = getDragBounds(el)
       var pos = loadPosition()
-      var left
-      var top
-      if (pos) {
-        left = clamp(pos.left, bounds.minLeft, bounds.maxLeft)
-        top = clamp(pos.top, bounds.minTop, bounds.maxTop)
-      } else {
-        left = bounds.maxLeft
-        top = clamp(Math.max(bounds.minTop, 60), bounds.minTop, bounds.maxTop)
+      // 刷新后默认贴最右侧；仅保留用户拖过的 top
+      var top = pos && typeof pos.top === 'number' ? pos.top : Math.max(bounds.minTop, 60)
+      pinPanelRight(el, EDGE, top)
+    }
+
+    /** 展开/折叠后：右缘贴齐 EDGE，保证完整可见 */
+    function ensureFullyVisible (el) {
+      if (!el || dragging) return
+      var rect = el.getBoundingClientRect()
+      var bounds = getDragBounds(el)
+      var right = clamp(bounds.vw - rect.right, EDGE, bounds.vw - EDGE - 36)
+      // 只要右侧溢出或左侧溢出，都改回贴右
+      if (rect.right > bounds.vw - EDGE + 0.5 || rect.left < EDGE - 0.5) {
+        right = EDGE
       }
-      setPanelBox(el, left, top)
+      pinPanelRight(el, right, rect.top)
     }
 
     function eventPoint (e) {
@@ -150,6 +205,7 @@
       if (e.type === 'mousedown' && e.button !== 0) return
       if (!isOnHead(e.target)) return
       if (e.target.closest('a')) return
+      if (e.target.closest('.menmen-toc-panel-collapse')) return
       var el = panelEl()
       if (!el || !el.classList.contains(FLOAT_CLASS)) return
       var pt = eventPoint(e)
@@ -174,10 +230,7 @@
         dragging = true
         el.classList.add('menmen-toc-dragging')
       }
-      var bounds = getDragBounds(el)
-      var left = clamp(startLeft + (pt.x - startX), bounds.minLeft, bounds.maxLeft)
-      var top = clamp(startTop + (pt.y - startY), bounds.minTop, bounds.maxTop)
-      setPanelBox(el, left, top)
+      setPanelBoxLeft(el, startLeft + (pt.x - startX), startTop + (pt.y - startY))
       e.preventDefault()
     }
 
@@ -185,6 +238,8 @@
       var el = panelEl()
       if (dragging && el) {
         el.classList.remove('menmen-toc-dragging')
+        // 拖拽结束改回 right 锚定，后续展开不会裁切
+        ensureFullyVisible(el)
         savePosition(el)
       }
       dragging = false
@@ -205,7 +260,7 @@
       window.addEventListener('resize', function () {
         var el = panelEl()
         if (!el || !el.classList.contains(FLOAT_CLASS) || dragging) return
-        applySavedPosition(el)
+        ensureFullyVisible(el)
       })
     }
 
@@ -335,6 +390,14 @@
           try {
             sessionStorage.setItem('menmen-toc-collapsed', collapsed ? '1' : '0')
           } catch (err) { /* ignore */ }
+          // 用 right 锚定：展开向左变宽，右缘始终不超出屏幕
+          requestAnimationFrame(function () {
+            var node = panelEl()
+            if (!node) return
+            var top = node.getBoundingClientRect().top
+            pinPanelRight(node, EDGE, top)
+            savePosition(node)
+          })
         })
         try {
           if (sessionStorage.getItem('menmen-toc-collapsed') === '1') {

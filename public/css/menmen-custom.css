@@ -116,6 +116,20 @@ body.menmen-preview-wide .ui-view-area .markdown-body {
   }
 }
 
+/* 手机 UA 预览：正文占满可用宽度（由 JS 标记 menmen-mobile-ua，避免桌面窄窗误伤） */
+body.menmen-custom-ui.menmen-mobile-ua .ui-view-area .markdown-body {
+  max-width: none !important;
+  width: 100%;
+  box-sizing: border-box;
+  padding-left: 12px;
+  padding-right: 12px;
+}
+
+body.menmen-custom-ui.menmen-mobile-ua .ui-view-area {
+  padding-left: 0;
+  padding-right: 0;
+}
+
 /* 无编辑权：隐藏预览/分栏/编辑切换，只保留查看 */
 body.menmen-readonly .ui-mode-group,
 body.menmen-readonly .ui-mode,
@@ -227,11 +241,13 @@ body.menmen-custom-ui > #ui-toc-affix.menmen-toc-float,
   z-index: 10050;
   width: 220px !important;
   min-width: 200px;
-  max-width: min(280px, 36vw);
+  max-width: min(280px, calc(100vw - 16px));
   max-height: min(70vh, 520px);
   overflow: auto;
   margin: 0 !important;
-  right: auto !important;
+  left: auto !important;
+  right: 8px !important;
+  box-sizing: border-box;
 }
 
 .menmen-custom-ui #ui-toc-affix.menmen-toc-float:has(.toc) {
@@ -327,6 +343,11 @@ body.menmen-custom-ui > #ui-toc-affix.menmen-toc-float,
 
 .menmen-custom-ui #ui-toc-affix.menmen-toc-panel-collapsed .menmen-toc-panel-title,
 .menmen-custom-ui #ui-toc.menmen-toc-panel-collapsed .menmen-toc-panel-title {
+  display: none !important;
+}
+
+.menmen-custom-ui #ui-toc-affix.menmen-toc-panel-collapsed .menmen-toc-panel-grip,
+.menmen-custom-ui #ui-toc.menmen-toc-panel-collapsed .menmen-toc-panel-grip {
   display: none !important;
 }
 

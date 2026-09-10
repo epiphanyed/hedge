@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <%- include('../includes/favicon') %>
 <% if (typeof menmenCustomUI !== 'undefined' && menmenCustomUI) {
-  var menmenCssVersion = menmenAssetVersion || '2026082503';
+  var menmenCssVersion = (typeof menmenAssetVersion !== 'undefined' && menmenAssetVersion) ? menmenAssetVersion : '2026091024';
 %>
 <link rel="stylesheet" href="<%- serverURL %>/css/menmen-custom.css?v=<%= menmenCssVersion %>">
 <% } %>

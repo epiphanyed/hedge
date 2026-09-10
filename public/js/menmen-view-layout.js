@@ -6,6 +6,22 @@
   var LAYOUT_KEY = 'menmen-preview-layout'
   var WIDE_CLASS = 'menmen-preview-wide'
 
+  function isMobileUa () {
+    try {
+      return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile/i.test(
+        navigator.userAgent || ''
+      )
+    } catch (e) {
+      return false
+    }
+  }
+
+  function markMobileUa () {
+    if (typeof document === 'undefined' || !document.body) return
+    if (!document.body.classList.contains('menmen-custom-ui')) return
+    if (isMobileUa()) document.body.classList.add('menmen-mobile-ua')
+  }
+
   function boot () {
     var $ = window.jQuery || window.$
     if (!$) {
@@ -13,6 +29,7 @@
       return
     }
     if (!document.body.classList.contains('menmen-custom-ui')) return
+    markMobileUa()
     if (mounted || $('.menmen-view-layout-group').length) return
 
     function t (key, fallback) {
@@ -21,6 +38,8 @@
     }
 
     function getLayout () {
+      // 仅手机 UA 强制宽屏；桌面即使 iframe 变窄也尊重用户选择
+      if (isMobileUa()) return 'wide'
       try {
         return sessionStorage.getItem(LAYOUT_KEY) === 'wide' ? 'wide' : 'centered'
       } catch (e) {
