@@ -433,19 +433,34 @@ small .dropdown a:focus, small .dropdown a:hover {
   padding: 12px 16px;
   border-bottom: 1px solid #3c3c3c;
   background: #252526;
+  gap: 12px;
+}
+
+.manim-info {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: nowrap;
+  gap: 10px;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .manim-title {
-  display: block;
+  display: inline;
   font-weight: 600;
   letter-spacing: 0.04em;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .manim-subtitle {
-  display: block;
+  display: inline;
   font-size: 12px;
   color: #9da5b4;
-  margin-top: 4px;
+  margin-top: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .manim-tabs {
@@ -540,19 +555,32 @@ small .dropdown a:focus, small .dropdown a:hover {
   margin: 0;
   background: #111;
   border-radius: 4px;
-  padding: 12px;
+  padding: 14px 16px;
   overflow: auto;
+  /* Already dark-themed; night-mode invert makes text soft/blurry */
+  filter: none !important;
+  text-shadow: none;
+  letter-spacing: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .manim-tab-panel.tab-source pre code.hljs {
   display: block;
   background: transparent;
   padding: 0;
-  font-family: Consolas, "Courier New", monospace;
-  font-size: 13px;
-  line-height: 1.55;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.65;
+  letter-spacing: 0;
   color: #d4d4d4;
   white-space: pre;
+  tab-size: 4;
+  text-shadow: none;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-variant-ligatures: none;
 }
 
 .manim-container .tab-source .hljs-keyword,

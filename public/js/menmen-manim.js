@@ -36,19 +36,37 @@ function highlightPython (code) {
   }
 }
 
-function sceneTitle (sceneName) {
-  return (sceneName || 'MANIM').toUpperCase()
+/** 从源码猜 Scene 子类名（与 manim-service AST 回退一致：取第一个） */
+function guessSceneName (code) {
+  if (!code) return ''
+  const re = /class\s+([A-Za-z_]\w*)\s*\([^)]*\b\w*Scene\b[^)]*\)/g
+  const match = re.exec(code)
+  return match ? match[1] : ''
+}
+
+function resolveDisplayScene (explicitScene, code, stateScene) {
+  return (explicitScene || stateScene || guessSceneName(code) || '').trim()
+}
+
+function formatSceneFiles (sceneName) {
+  const name = sceneName || ''
+  if (!name) return 'script.py · output.mp4'
+  return `${name}.py · ${name}.mp4`
+}
+
+function updateManimHeader ($container, sceneName) {
+  $container.find('.manim-title').text('MANIM')
+  $container.find('.manim-subtitle').text(formatSceneFiles(sceneName))
 }
 
 function buildManimShell (localKey, sceneName, code) {
-  const pyName = sceneName ? `${sceneName}.py` : 'script.py'
-  const mp4Name = sceneName ? `${sceneName}.mp4` : 'output.mp4'
+  const name = resolveDisplayScene(sceneName, code, '')
   return `
-<div class="manim-container" data-manim-key="${localKey}">
+<div class="manim-container" data-manim-key="${localKey}" data-scene-name="${escapeCode(name)}">
   <div class="manim-header">
     <div class="manim-info">
-      <span class="manim-title">${escapeCode(sceneTitle(sceneName))}</span>
-      <span class="manim-subtitle">${escapeCode(pyName)} · ${escapeCode(mp4Name)}</span>
+      <span class="manim-title">MANIM</span>
+      <span class="manim-subtitle">${escapeCode(formatSceneFiles(name))}</span>
     </div>
     <div class="manim-tabs">
       <button type="button" class="manim-tab-btn active" data-tab="video">Video</button>
@@ -74,11 +92,11 @@ function bindManimTabs ($container) {
   })
 }
 
-function renderManimLoadingPanel ($container) {
+function renderManimLoadingPanel ($container, label) {
   $container.find('.tab-video').html(`
     <div class="manim-loading">
       <span class="manim-spinner"></span>
-      <span>Rendering 1080p60...</span>
+      <span>${escapeCode(label || 'Rendering...')}</span>
     </div>`)
 }
 
@@ -115,6 +133,11 @@ function applyManimResult (localKey, code, scene, state) {
   const $targets = getPreviewRoot().find(`[data-manim-key="${localKey}"]`)
   $targets.each(function () {
     const $container = $(this)
+    const displayScene = resolveDisplayScene(scene, code, state.sceneName)
+    if (displayScene) {
+      updateManimHeader($container, displayScene)
+      $container.attr('data-scene-name', displayScene)
+    }
     if (state.status === 'done') {
       renderManimDonePanel($container, state)
     } else if (state.status === 'error') {
@@ -140,10 +163,15 @@ function stopPoller (localKey) {
 
 function pollManimStatus (localKey, code, scene, articleId, hash) {
   stopPoller(localKey)
-  const timer = setInterval(function () {
+
+  const tick = function () {
     fetch(`${serverurl}/api/manim/status/${articleId}/${hash}`, {
-      credentials: 'same-origin'
+      credentials: 'same-origin',
+      cache: 'no-store',
+      headers: { 'Cache-Control': 'no-cache' }
     }).then(function (response) {
+      // 304：旧 ETag 缓存，忽略并继续轮询
+      if (response.status === 304) return null
       if (response.status === 404) {
         stopPoller(localKey)
         const state = manimStateMap.get(localKey) || {}
@@ -160,6 +188,20 @@ function pollManimStatus (localKey, code, scene, articleId, hash) {
         }
         return null
       }
+      // 503 等瞬时错误：保持 loading，继续轮询
+      if (response.status === 503) return null
+      if (response.status >= 400) {
+        return response.json().then(function (body) {
+          stopPoller(localKey)
+          applyManimResult(localKey, code, scene, {
+            status: 'error',
+            stderr: (body && (body.stderr || body.message)) || `Status failed (${response.status})`,
+            hash,
+            articleId
+          })
+          return null
+        })
+      }
       return response.json()
     }).then(function (body) {
       if (!body) return
@@ -170,13 +212,12 @@ function pollManimStatus (localKey, code, scene, articleId, hash) {
       }
     }).catch(function (err) {
       console.error(err)
-      stopPoller(localKey)
-      applyManimResult(localKey, code, scene, {
-        status: 'error',
-        stderr: 'Render service unavailable'
-      })
+      // 解析失败不立刻停（可能是空 304），留给下次 tick
     })
-  }, MANIM_POLL_MS)
+  }
+
+  tick()
+  const timer = setInterval(tick, MANIM_POLL_MS)
   manimPollers.set(localKey, timer)
 }
 
@@ -185,7 +226,8 @@ function submitManimRender (localKey, code, scene, immediate) {
     fetch(`${serverurl}/api/manim/render`, {
       method: 'POST',
       credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json' },
+      cache: 'no-store',
+      headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' },
       body: JSON.stringify({
         code,
         scene: scene || undefined,
@@ -203,12 +245,26 @@ function submitManimRender (localKey, code, scene, immediate) {
       if (status >= 400) {
         applyManimResult(localKey, code, scene, {
           status: 'error',
-          stderr: body.stderr || `Request failed (${status})`
+          stderr: body.stderr || body.message || `Request failed (${status})`
+        })
+        return
+      }
+      if (!body || !body.status) {
+        applyManimResult(localKey, code, scene, {
+          status: 'error',
+          stderr: 'Invalid render response (check /api/manim/ nginx route)'
         })
         return
       }
       applyManimResult(localKey, code, scene, body)
       if (body.status === 'queued' || body.status === 'rendering') {
+        if (!body.articleId || !body.hash) {
+          applyManimResult(localKey, code, scene, {
+            status: 'error',
+            stderr: 'Render response missing articleId/hash'
+          })
+          return
+        }
         pollManimStatus(localKey, code, scene, body.articleId, body.hash)
       }
     }).catch(function (err) {
@@ -246,23 +302,33 @@ export function processManimBlocks (view) {
     const $ele = $value.parent().parent()
     const code = $value.text()
     const scene = $value.attr('data-scene') || ''
+    const displayScene = resolveDisplayScene(scene, code, '')
     const localKey = clientHash(`${scene}\n${code}`)
     const state = manimStateMap.get(localKey)
 
-    $ele.replaceWith(buildManimShell(localKey, scene, code))
+    $ele.replaceWith(buildManimShell(localKey, displayScene, code))
     const $container = getPreviewRoot().find(`[data-manim-key="${localKey}"]`).last()
     bindManimTabs($container)
 
     if (state && state.status === 'done') {
+      updateManimHeader($container, resolveDisplayScene(scene, code, state.sceneName))
       renderManimDonePanel($container, state)
       return
     }
     if (state && state.status === 'error') {
+      updateManimHeader($container, resolveDisplayScene(scene, code, state.sceneName))
       renderManimErrorPanel($container, state, function () {
         const next = Object.assign({}, state, { retried: 0 })
         manimStateMap.set(localKey, next)
         submitManimRender(localKey, code, scene, true)
       })
+      return
+    }
+    if (state && (state.status === 'queued' || state.status === 'rendering')) {
+      renderManimLoadingPanel($container)
+      if (state.articleId && state.hash && !manimPollers.has(localKey)) {
+        pollManimStatus(localKey, code, scene, state.articleId, state.hash)
+      }
       return
     }
 

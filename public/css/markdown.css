@@ -134,7 +134,9 @@
     white-space: inherit;
 }
 
-.night .markdown-body pre.graphviz {
+.night .markdown-body pre.graphviz,
+.night .markdown-body pre.manim-source-pre,
+.night .markdown-body .manim-container pre {
     filter: none;
 }
 

@@ -44,14 +44,31 @@
   text-align: center;
 }
 
-/* 月亮左侧：视图布局下拉（居中 / wide） */
+/* 月亮左侧：视图布局下拉（居中 / wide）；桌面与窄屏/iframe（nav-mobile）各挂一份 */
 .menmen-custom-ui .menmen-view-layout-group {
   margin-right: 0;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+/* 手机 UA：隐藏布局按钮（默认 wide，无需切换） */
+body.menmen-custom-ui.menmen-mobile-ua .menmen-view-layout-group {
+  display: none !important;
+}
+
+.menmen-custom-ui .nav-mobile .menmen-view-layout-group {
+  margin-right: 4px;
 }
 
 .menmen-custom-ui .menmen-view-layout-btn {
   padding-left: 10px;
   padding-right: 10px;
+}
+
+.menmen-custom-ui .nav-mobile .menmen-view-layout-btn {
+  padding-left: 8px;
+  padding-right: 8px;
+  line-height: 1.4;
 }
 
 .menmen-custom-ui .menmen-view-layout-menu {
@@ -445,4 +462,87 @@ body.menmen-custom-ui > #ui-toc-affix.menmen-toc-float,
 
 .night.menmen-custom-ui .menmen-toc-panel-title {
   color: #ddd;
+}
+
+/* —— Manim Source：避免 night invert 发虚，提升等宽字清晰度 —— */
+.markdown-body .manim-container pre,
+.markdown-body .manim-container pre.manim-source-pre,
+.night .markdown-body .manim-container pre,
+.night .markdown-body .manim-container pre.manim-source-pre,
+.night .markdown-body pre.manim-source-pre {
+  filter: none !important;
+  -webkit-filter: none !important;
+  text-shadow: none !important;
+  letter-spacing: 0 !important;
+  -webkit-font-smoothing: antialiased !important;
+  -moz-osx-font-smoothing: grayscale !important;
+  background: #0d1117 !important;
+  border: 0 !important;
+  border-radius: 6px !important;
+  padding: 16px 18px !important;
+  overflow: auto !important;
+}
+
+.markdown-body .manim-container pre code.hljs,
+.markdown-body .manim-container .tab-source pre code,
+.night .markdown-body .manim-container pre code.hljs {
+  display: block !important;
+  background: transparent !important;
+  padding: 0 !important;
+  color: #e6edf3 !important;
+  font-family: "Cascadia Code", "JetBrains Mono", "Fira Code", Consolas, "Courier New", monospace !important;
+  font-size: 14.5px !important;
+  font-weight: 450 !important;
+  line-height: 1.7 !important;
+  letter-spacing: 0 !important;
+  tab-size: 4 !important;
+  white-space: pre !important;
+  text-shadow: none !important;
+  -webkit-font-smoothing: antialiased !important;
+  -moz-osx-font-smoothing: grayscale !important;
+  font-variant-ligatures: none !important;
+}
+
+.markdown-body .manim-container .tab-source .hljs-keyword,
+.markdown-body .manim-container .tab-source .hljs-selector-tag {
+  color: #79c0ff !important;
+}
+
+.markdown-body .manim-container .tab-source .hljs-built_in,
+.markdown-body .manim-container .tab-source .hljs-type {
+  color: #7ee787 !important;
+}
+
+.markdown-body .manim-container .tab-source .hljs-string,
+.markdown-body .manim-container .tab-source .hljs-regexp {
+  color: #a5d6ff !important;
+}
+
+.markdown-body .manim-container .tab-source .hljs-comment,
+.markdown-body .manim-container .tab-source .hljs-quote {
+  color: #8b949e !important;
+  font-style: normal !important;
+}
+
+.markdown-body .manim-container .tab-source .hljs-number,
+.markdown-body .manim-container .tab-source .hljs-literal {
+  color: #ffa657 !important;
+}
+
+.markdown-body .manim-container .tab-source .hljs-title,
+.markdown-body .manim-container .tab-source .hljs-function,
+.markdown-body .manim-container .tab-source .hljs-title.function_ {
+  color: #d2a8ff !important;
+}
+
+.markdown-body .manim-container .tab-source .hljs-class .hljs-title,
+.markdown-body .manim-container .tab-source .hljs-title.class_ {
+  color: #ffa657 !important;
+}
+
+.markdown-body .manim-container .tab-source .hljs-params,
+.markdown-body .manim-container .tab-source .hljs-variable,
+.markdown-body .manim-container .tab-source .hljs-attr,
+.markdown-body .manim-container .tab-source .hljs-meta {
+  color: #ffa198 !important;
 }
