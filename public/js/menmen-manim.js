@@ -2,9 +2,12 @@
 'use strict'
 
 import escapeHTML from 'escape-html'
-import hljs from 'highlight.js'
+import hljs from 'highlight.js/lib/core'
+import python from 'highlight.js/lib/languages/python'
 import { noteid } from './lib/config/index'
 import getUIElements from './lib/editor/ui-elements'
+
+hljs.registerLanguage('python', python)
 
 const ui = getUIElements()
 
@@ -29,7 +32,7 @@ function escapeCode (code) {
 
 function highlightPython (code) {
   try {
-    return hljs.highlight('python', code).value
+    return hljs.highlight(code, { language: 'python' }).value
   } catch (err) {
     console.warn('manim source highlight failed:', err)
     return escapeCode(code)

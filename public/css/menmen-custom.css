@@ -546,3 +546,19 @@ body.menmen-custom-ui > #ui-toc-affix.menmen-toc-float,
 .markdown-body .manim-container .tab-source .hljs-meta {
   color: #ffa198 !important;
 }
+
+.menmen-translate-draft-banner {
+  position: sticky;
+  top: 0;
+  z-index: 1200;
+  padding: 8px 14px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: #1f2937;
+  background: #fef3c7;
+  border-bottom: 1px solid #f59e0b;
+}
+
+body.menmen-has-translate-draft-banner .ui-toolbar {
+  top: 36px;
+}
