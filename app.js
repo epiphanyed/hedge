@@ -258,6 +258,10 @@ app.use(require('./lib/web/historyRouter'))
 app.use(require('./lib/web/userRouter'))
 app.use(require('./lib/web/imageRouter'))
 app.use(require('./lib/web/manimRouter'))
+app.use(require('./lib/web/vlmRouter'))
+app.use(require('./lib/web/geoRouter'))
+app.use(require('./lib/web/chemRouter'))
+app.use(require('./lib/web/hwRouter'))
 app.use(require('./lib/web/note/router'))
 
 // response not found if no any route matxches

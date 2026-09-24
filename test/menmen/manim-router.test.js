@@ -59,6 +59,20 @@ function buildApp (options) {
     errorBadRequest: function (res) { res.status(400).send('bad request') },
     errorTooManyRequests: function (res) { res.status(429).send('too many requests') }
   })
+  const scopeResolve = options.scopeResolve || (async function (noteId) {
+    const articleId = await options.menmenPerm.resolveArticleId(noteId)
+    return articleId != null ? String(articleId) : null
+  })
+  mock('../../lib/web/scope-util', {
+    resolveScopeFromNoteId: scopeResolve,
+    loadNoteByAliasOrId: async function () { return null },
+    isValidScope: function (scope) { return /^(\d+|n_[0-9a-f-]{36})$/.test(String(scope)) },
+    isValidHash: function (hash) { return /^[a-f0-9]{64}$/.test(String(hash)) }
+  })
+  mock('../../lib/web/render-util', {
+    resolveVisibility: async function () { return options.visibility || 'private' },
+    sendRenderJson: function (res, status, body) { res.status(status).json(body == null ? {} : body) }
+  })
   mock.stop('../../lib/web/manimRouter')
   const router = mock.reRequire('../../lib/web/manimRouter')
   const app = express()
@@ -85,6 +99,8 @@ describe('manimRouter', function () {
     mock.stop('../../lib/menmen-perm')
     mock.stop('node-fetch')
     mock.stop('../../lib/errors')
+    mock.stop('../../lib/web/scope-util')
+    mock.stop('../../lib/web/render-util')
     mock.stop('../../lib/web/manimRouter')
   })
 
@@ -146,7 +162,7 @@ describe('manimRouter', function () {
     assert.strictEqual(captured.url, 'http://manim-service:8000/render')
     assert.strictEqual(captured.opts.headers['X-Manim-Token'], 'secret-token')
     const payload = JSON.parse(captured.opts.body)
-    assert.strictEqual(payload.articleId, 42)
+    assert.strictEqual(payload.articleId, '42')
     assert.strictEqual(payload.scene, 'Demo')
     assert.strictEqual(payload.noteId, undefined)
   })

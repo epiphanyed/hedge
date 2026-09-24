@@ -508,6 +508,13 @@ if (!textit) {
 const editorInstance = new Editor()
 const editor = editorInstance.init(textit)
 
+function initMenmenInkToolbar () {
+  require.ensure([], function (requireEnsure) {
+    const mod = requireEnsure('./menmen-handwriting')
+    mod.initMenmenHandwriting(editorInstance)
+  }, 'menmen-ink')
+}
+
 // FIXME: global referncing in jquery-textcomplete patch
 window.editor = editor
 
@@ -1175,6 +1182,7 @@ function changeMode (type) {
     // add and update tool bar
     if (!editorInstance.toolBar) {
       editorInstance.addToolBar()
+      initMenmenInkToolbar()
     }
     // work around foldGutter might not init properly
     editor.setOption('foldGutter', false)

@@ -37,6 +37,9 @@ function requestApp (app, method, path) {
 
 function buildApp (config) {
   mock('../../lib/config', config)
+  mock('../../lib/realtime', {
+    evictNoteSession: function () { return false }
+  })
   mock.stop('../../lib/menmen-routes')
   const router = mock.reRequire('../../lib/menmen-routes')
   const app = express()
@@ -60,6 +63,7 @@ describe('menmen-routes block', function () {
 
   afterEach(function () {
     mock.stop('../../lib/config')
+    mock.stop('../../lib/realtime')
     mock.stop('../../lib/menmen-routes')
   })
 

@@ -418,6 +418,14 @@ export function finishView (view) {
   })
   // manim
   processManimBlocks(view)
+  // geo3d / chem / cellviz (async chunk)
+  require.ensure([], function (requireCards) {
+    requireCards('./menmen-geo3d').processGeo3dBlocks(view)
+    requireCards('./menmen-chem').processChemBlocks(view)
+    requireCards('./menmen-cellviz').processCellvizBlocks(view)
+    requireCards('./menmen-asy').processAsyBlocks(view)
+    requireCards('./menmen-hw-ref').processHwReferences(view)
+  }, 'menmen-cards')
   // image href new window(emoji not included)
   const images = view.find('img.raw[src]').removeClass('raw')
   images.each((key, value) => {
@@ -995,6 +1003,18 @@ function highlightRender (code, lang) {
   }
   const manimHtml = manimHighlightRender(code, lang)
   if (manimHtml) return manimHtml
+  if (lang === 'geo3d') {
+    return `<div class="geo3d raw menmen-card-shell" data-lang="geo3d">${code}</div>`
+  }
+  if (lang === 'chem') {
+    return `<div class="chem raw menmen-card-shell" data-lang="chem">${code}</div>`
+  }
+  if (lang === 'cellviz') {
+    return `<div class="cellviz raw menmen-card-shell" data-lang="cellviz">${code}</div>`
+  }
+  if (lang === 'asy') {
+    return `<div class="asy raw menmen-card-shell" data-lang="asy">${code}</div>`
+  }
   const result = {
     value: code
   }

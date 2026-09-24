@@ -1,0 +1,156 @@
+.menmen-card-shell {
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 6px;
+  margin: 12px 0;
+  background: #fff;
+  overflow: hidden;
+}
+
+.menmen-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: #f6f8fa;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.menmen-card-title {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.menmen-card-tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.menmen-card-tab {
+  font-size: 11px;
+  padding: 2px 8px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 3px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.menmen-card-tab.active {
+  background: #3e63dd;
+  color: #fff;
+  border-color: #3e63dd;
+}
+
+.menmen-card-body {
+  min-height: 200px;
+  position: relative;
+}
+
+.menmen-card-panel {
+  display: none;
+  padding: 8px;
+}
+
+.menmen-card-panel.active {
+  display: block;
+}
+
+.menmen-card-canvas-wrap {
+  width: 100%;
+  height: 280px;
+  position: relative;
+}
+
+.menmen-card-canvas-wrap canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.menmen-geo3d-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.chem-3d-placeholder {
+  text-align: center;
+  padding: 12px;
+}
+
+img.chem-3d-snapshot {
+  display: none;
+}
+
+.geo3d-label-layer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.geo3d-label {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  font-size: 11px;
+  font-weight: 600;
+  color: #222;
+  background: rgba(255, 255, 255, 0.75);
+  padding: 0 3px;
+  border-radius: 2px;
+}
+
+.geo3d-ir-editor {
+  min-height: 120px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.menmen-card-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 120px;
+  color: #666;
+  font-size: 13px;
+}
+
+.menmen-card-views img {
+  max-width: 100%;
+  height: auto;
+}
+
+.menmen-card-source pre {
+  margin: 0;
+  max-height: 240px;
+  overflow: auto;
+  font-size: 12px;
+}
+
+body.night .menmen-card-shell {
+  background: #2a2a2a;
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+body.night .menmen-card-header {
+  background: #333;
+}
+
+img.geo3d-snapshot {
+  display: none;
+  max-width: 100%;
+}
+
+@media print {
+  .geo3d-container .menmen-card-canvas-wrap canvas {
+    display: none !important;
+  }
+  .geo3d-container img.geo3d-snapshot {
+    display: block !important;
+  }
+}
