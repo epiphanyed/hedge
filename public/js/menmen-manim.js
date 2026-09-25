@@ -6,6 +6,9 @@ import hljs from 'highlight.js/lib/core'
 import python from 'highlight.js/lib/languages/python'
 import { noteid } from './lib/config/index'
 import getUIElements from './lib/editor/ui-elements'
+import manimSceneGuess from '../../lib/manimSceneGuess'
+
+const { formatSceneFiles, guessSceneName, resolveDisplayScene } = manimSceneGuess
 
 hljs.registerLanguage('python', python)
 
@@ -37,24 +40,6 @@ function highlightPython (code) {
     console.warn('manim source highlight failed:', err)
     return escapeCode(code)
   }
-}
-
-/** 从源码猜 Scene 子类名（与 manim-service AST 回退一致：取第一个） */
-function guessSceneName (code) {
-  if (!code) return ''
-  const re = /class\s+([A-Za-z_]\w*)\s*\([^)]*\b\w*Scene\b[^)]*\)/g
-  const match = re.exec(code)
-  return match ? match[1] : ''
-}
-
-function resolveDisplayScene (explicitScene, code, stateScene) {
-  return (explicitScene || stateScene || guessSceneName(code) || '').trim()
-}
-
-function formatSceneFiles (sceneName) {
-  const name = sceneName || ''
-  if (!name) return 'script.py · output.mp4'
-  return `${name}.py · ${name}.mp4`
 }
 
 function updateManimHeader ($container, sceneName) {

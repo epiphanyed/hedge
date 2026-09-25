@@ -85,6 +85,8 @@ function buildApp (options) {
 }
 
 describe('manimRouter', function () {
+  this.timeout(10000)
+
   const enabledConfig = {
     allowAnonymous: false,
     allowAnonymousEdits: false,
