@@ -2,8 +2,10 @@
 'use strict'
 
 import '../css/menmen-ink.css'
+import { inkToolSvg } from './menmen-ink-icons'
 import { noteid } from './lib/config/index'
 import getUIElements from './lib/editor/ui-elements'
+import { insertLatexHwBlock, mathInsertIsInline } from './menmen-math-delimiters'
 
 const LOGIC_W = 1200
 const LOGIC_H = 800
@@ -87,7 +89,7 @@ function loadToolPrefs () {
 
 function saveToolPref (tool, patch) {
   const all = loadToolPrefs()
-  all[tool] = { ...(all[tool] || {}), ...patch }
+  all[tool] = Object.assign({}, all[tool] || {}, patch)
   localStorage.setItem('menmen.ink.tools', JSON.stringify(all))
 }
 
@@ -96,23 +98,7 @@ function toolColor () {
 }
 
 function svgToolIcon (tool) {
-  const c = 'var(--ink-color)'
-  if (tool === 'color') {
-    return `<circle cx="14" cy="22" r="8" fill="${toolColor()}" stroke="#fff" stroke-width="1"/>`
-  }
-  if (tool === 'eraser') {
-    return `<rect x="8" y="12" width="12" height="20" rx="4" fill="#ECECEC" stroke="#999"/>`
-  }
-  if (tool === 'brush') {
-    return `<path d="M12 8 L16 8 L14 28 L10 28 Z" fill="#FAFAFA"/><path d="M11 28 Q14 18 17 28" fill="${c}" opacity="0.85"/>`
-  }
-  if (tool === 'fineliner') {
-    return `<rect x="10" y="8" width="8" height="22" rx="2" fill="#FAFAFA"/><polygon points="10,30 18,30 16,36 12,36" fill="${c}"/>`
-  }
-  if (tool === 'pencil') {
-    return `<polygon points="8,36 12,10 16,12 12,38" fill="#E8DCC8"/><polygon points="12,10 14,8 16,10 14,12" fill="#3A3A3A"/>`
-  }
-  return `<rect x="10" y="10" width="8" height="24" rx="3" fill="#FAFAFA"/><circle cx="14" cy="36" r="1.5" fill="${c}"/>`
+  return inkToolSvg(tool, 'var(--ink-color)', tool === 'color' ? toolColor() : undefined)
 }
 
 function ensureModules () {
@@ -334,13 +320,12 @@ function normalizeImage () {
 
   const filtered = strokes.filter(s => s.alpha > 0.5 && !(s.tool === 'brush' && s.width >= 16))
   filtered.forEach(s => {
-    const fake = {
-      ...s,
+    const fake = Object.assign({}, s, {
       tool: 'ballpoint',
       color: '#111111',
       alpha: 1,
       points: s.points
-    }
+    })
     const poly = polygonFromStroke(fake)
     if (!poly || !poly.length) return
     ctx.fillStyle = '#111'
@@ -418,7 +403,7 @@ async function recognize (mode, hint) {
 async function pollJob (scope, hash) {
   const start = Date.now()
   let delay = 1000
-  while (Date.now() - start < 180000) {
+  while (Date.now() - start < 360000) {
     const res = await fetch(`${serverurl}/api/vlm/jobs/${scope}/${hash}`, { credentials: 'same-origin' })
     const body = await res.json()
     if (body.status === 'done') return body.result
@@ -529,7 +514,7 @@ function rangesIntersect (fromA, toA, fromB, toB) {
 
 function findHwBlockTarget (hash) {
   const doc = cm.getValue()
-  const latexRe = new RegExp(`<!--\\s*hw:${hash}\\s*-->\\s*\\n\\$\\$[\\s\\S]*?\\$\\$`, 'm')
+  const latexRe = new RegExp(`<!--\\s*hw:${hash}\\s*-->\\s*\\n(?:\\$\\$[\\s\\S]*?\\$\\$|\\$[^\\n$]+\\$)`, 'm')
   let m = latexRe.exec(doc)
   if (m) {
     return { from: cm.posFromIndex(m.index), to: cm.posFromIndex(m.index + m[0].length), kind: 'latex', hash }
@@ -630,7 +615,8 @@ function insertAfterHwBlock (target, content) {
 }
 
 function insertLatexBlockContent (latex, hash) {
-  return `<!-- hw:${hash} -->\n$$\n${latex}\n$$`
+  const inline = mathInsertIsInline(cm, cm.getCursor())
+  return insertLatexHwBlock(latex, hash, { inline })
 }
 
 function insertGeoBlockContent (ir, hash) {
@@ -831,7 +817,7 @@ function buildTray (tray) {
     btn.title = `${def.label} (${def.shortcut})`
     btn.setAttribute('role', def.id === 'color' ? 'button' : 'radio')
     btn.setAttribute('aria-checked', def.id === activeTool ? 'true' : 'false')
-    btn.innerHTML = `<svg viewBox="0 0 28 44" aria-hidden="true">${svgToolIcon(def.id)}</svg>`
+    btn.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${svgToolIcon(def.id)}</svg>`
     btn.style.setProperty('--ink-color', color)
     tray.appendChild(btn)
   })
@@ -846,6 +832,41 @@ function setActiveTool (tool, tray) {
   saveToolPref(tool, { lastUsed: Date.now() })
 }
 
+function positionInkPad (pad, editArea) {
+  if (!pad || !editArea) return
+  const areaRect = editArea.getBoundingClientRect()
+  const areaW = editArea.clientWidth || areaRect.width
+  const areaH = editArea.clientHeight || areaRect.height
+  const edge = 6
+  let left = edge
+  let top = 48
+  let width = Math.max(200, areaW - edge * 2)
+  let height = Math.min(300, Math.max(180, areaH * 0.38))
+  const ed = typeof cm !== 'undefined' ? cm : (typeof window !== 'undefined' ? window.editor : null)
+  if (ed && typeof ed.cursorCoords === 'function' && ed.getWrapperElement) {
+    const cmEl = ed.getWrapperElement()
+    const cmRect = cmEl.getBoundingClientRect()
+    const gutters = cmEl.querySelector('.CodeMirror-gutters')
+    const gutterW = gutters ? gutters.offsetWidth : 0
+    left = Math.max(edge, (cmRect.left - areaRect.left) + gutterW)
+    width = Math.max(200, areaW - left - edge)
+    try {
+      const coords = ed.cursorCoords(ed.getCursor(), 'local')
+      top = (cmRect.top - areaRect.top) + coords.bottom + 8
+      if (top + height > areaH - edge) {
+        const aboveTop = (cmRect.top - areaRect.top) + coords.top - height - 8
+        if (aboveTop >= edge) top = aboveTop
+        else height = Math.max(140, areaH - top - edge)
+      }
+    } catch (e) { /* ignore */ }
+  }
+  pad.style.left = `${left}px`
+  pad.style.right = 'auto'
+  pad.style.top = `${top}px`
+  pad.style.width = `${width}px`
+  pad.style.height = `${height}px`
+}
+
 function openOverlay (editArea, opts) {
   opts = opts || {}
   overlayOpen = true
@@ -855,11 +876,14 @@ function openOverlay (editArea, opts) {
   if (!overlay) {
     overlay = document.createElement('div')
     overlay.className = 'menmen-ink-overlay'
+    const pad = document.createElement('div')
+    pad.className = 'menmen-ink-pad'
     committedCanvas = document.createElement('canvas')
     liveCanvas = document.createElement('canvas')
     committedCanvas.style.visibility = 'hidden'
-    overlay.appendChild(committedCanvas)
-    overlay.appendChild(liveCanvas)
+    pad.appendChild(committedCanvas)
+    pad.appendChild(liveCanvas)
+    overlay.appendChild(pad)
 
     const panel = document.createElement('div')
     panel.className = 'menmen-ink-panel'
@@ -871,6 +895,7 @@ function openOverlay (editArea, opts) {
     panel.innerHTML = `
       <select class="btn-mode-select" title="识别模式">${modeOptions}</select>
       <button type="button" class="btn-recognize">识别</button>
+      <button type="button" class="btn-recognize-text">识别为文字</button>
       <button type="button" class="btn-clear">清空</button>
       <details class="menmen-ink-hint">
         <summary>补充提示</summary>
@@ -881,7 +906,8 @@ function openOverlay (editArea, opts) {
       recognizeMode = e.target.value
       localStorage.setItem('menmen.ink.lastMode', recognizeMode)
     })
-    overlay.appendChild(panel)
+    const padEl = overlay.querySelector('.menmen-ink-pad') || overlay
+    padEl.appendChild(panel)
 
     liveCanvas.addEventListener('pointerdown', onPointerDown)
     liveCanvas.addEventListener('pointermove', onPointerMove)
@@ -922,13 +948,19 @@ function openOverlay (editArea, opts) {
     editArea.style.position = editArea.style.position || 'relative'
     editArea.appendChild(overlay)
 
-    const ro = new ResizeObserver(() => resizeCanvases(overlay))
+    const ro = new ResizeObserver(() => {
+      const nextPad = overlay.querySelector('.menmen-ink-pad') || overlay
+      positionInkPad(nextPad, editArea)
+      resizeCanvases(nextPad)
+    })
     ro.observe(editArea)
     overlay._ro = ro
   }
   overlay.style.display = 'block'
   cm.setOption('readOnly', 'nocursor')
-  resizeCanvases(overlay)
+  const pad = overlay.querySelector('.menmen-ink-pad') || overlay
+  positionInkPad(pad, editArea)
+  resizeCanvases(pad)
   loadSession()
   redrawCommitted()
   redrawLive()
@@ -945,23 +977,58 @@ function closeOverlay () {
   saveSession()
 }
 
+function setTrayOpen (tray, open) {
+  if (!tray) return
+  tray.classList.toggle('open', !!open)
+  if (open) tray.removeAttribute('hidden')
+  else tray.setAttribute('hidden', '')
+}
+
 function toggleOverlay (editArea, toggleBtn, tray) {
+  if (!editArea) {
+    console.error('menmen-ink: edit area missing')
+    return
+  }
   if (overlayOpen) {
     closeOverlay()
-    toggleBtn.classList.remove('active')
-    toggleBtn.setAttribute('aria-pressed', 'false')
-    tray.classList.remove('open')
+    if (toggleBtn) {
+      toggleBtn.classList.remove('active')
+      toggleBtn.setAttribute('aria-pressed', 'false')
+    }
+    setTrayOpen(tray, false)
   } else {
-    tray.classList.add('open')
-    toggleBtn.classList.add('active')
-    toggleBtn.setAttribute('aria-pressed', 'true')
+    setTrayOpen(tray, true)
+    if (toggleBtn) {
+      toggleBtn.classList.add('active')
+      toggleBtn.setAttribute('aria-pressed', 'true')
+    }
     openOverlay(editArea)
   }
 }
 
+function exposeInkGlobal () {
+  window.__menmenInk = {
+    toggle: toggleMenmenInk,
+    isOpen: function () { return overlayOpen }
+  }
+}
+
+export function toggleMenmenInk () {
+  const ui = getUIElements()
+  const editArea = ui.area && ui.area.edit && ui.area.edit[0]
+  const toolbar = editorInstance && editorInstance.toolBar
+  const toggleBtn = toolbar && toolbar.find('.menmen-ink-toggle')[0]
+  const tray = toolbar && toolbar.find('.menmen-ink-tray')[0]
+  toggleOverlay(editArea, toggleBtn, tray)
+}
+
+let inkInited = false
+
 export function initMenmenHandwriting (instance) {
   editorInstance = instance
   cm = instance.editor
+  exposeInkGlobal()
+  if (inkInited) return
   const toolbar = instance.toolBar
   if (!toolbar || !toolbar.length) return
 
@@ -977,7 +1044,11 @@ export function initMenmenHandwriting (instance) {
   const ui = getUIElements()
   const editArea = ui.area.edit[0]
 
-  toggleBtn.on('click', () => toggleOverlay(editArea, toggleBtn[0], tray))
+  toggleBtn.on('click', function (e) {
+    e.preventDefault()
+    e.stopPropagation()
+    toggleOverlay(editArea, toggleBtn[0], tray)
+  })
 
   tray.addEventListener('click', e => {
     const btn = e.target.closest('.ink-tool')
@@ -1013,14 +1084,14 @@ export function initMenmenHandwriting (instance) {
     if (e.key === 'Escape') {
       closeOverlay()
       toggleBtn.removeClass('active')
-      tray.classList.remove('open')
+      setTrayOpen(tray, false)
     }
     if (e.ctrlKey && e.key.toLowerCase() === 'z') {
       e.preventDefault()
       const item = undoStack.pop()
       if (!item) return
       if (item.type === 'draw') strokes = strokes.filter(s => s.id !== item.stroke.id)
-      if (item.type === 'erase') strokes.push(...item.removed)
+      if (item.type === 'erase') strokes.push.apply(strokes, item.removed)
       redoStack.push(item)
       saveSession()
       redrawCommitted()
@@ -1029,6 +1100,8 @@ export function initMenmenHandwriting (instance) {
   })
 
   ensureModules().catch(err => console.warn('menmen-handwriting: perfect-freehand load failed', err))
+  inkInited = true
+  exposeInkGlobal()
 }
 
 export async function loadHandwritingForEdit (hash) {

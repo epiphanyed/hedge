@@ -74,6 +74,22 @@
   margin-bottom: 6px;
 }
 
+.chem-container .tab-2d.active {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 280px;
+}
+
+.chem-container .tab-2d img.chem-2d-img {
+  display: block;
+  max-width: 100%;
+  max-height: 320px;
+  width: auto;
+  height: auto;
+  margin: 0 auto;
+}
+
 .chem-3d-placeholder {
   text-align: center;
   padding: 12px;

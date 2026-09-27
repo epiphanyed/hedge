@@ -24,6 +24,7 @@ import { Spinner } from 'spin.js'
 import _ from 'lodash'
 
 import '../css/menmen-custom.css'
+import { initMenmenHandwriting } from './menmen-handwriting'
 
 import List from 'list.js'
 
@@ -509,10 +510,11 @@ const editorInstance = new Editor()
 const editor = editorInstance.init(textit)
 
 function initMenmenInkToolbar () {
-  require.ensure([], function (requireEnsure) {
-    const mod = requireEnsure('./menmen-handwriting')
-    mod.initMenmenHandwriting(editorInstance)
-  }, 'menmen-ink')
+  try {
+    initMenmenHandwriting(editorInstance)
+  } catch (err) {
+    console.error('menmen-ink init failed', err)
+  }
 }
 
 // FIXME: global referncing in jquery-textcomplete patch
@@ -1187,6 +1189,18 @@ function changeMode (type) {
     // work around foldGutter might not init properly
     editor.setOption('foldGutter', false)
     editor.setOption('foldGutter', true)
+    // ui-content 初始 display:none，gutters 量成 0 会把输入框叠到行号上
+    const refreshShownEditor = function () {
+      try {
+        editor.refresh()
+      } catch (err) { /* ignore */ }
+    }
+    refreshShownEditor()
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(refreshShownEditor)
+    }
+    setTimeout(refreshShownEditor, 0)
+    setTimeout(refreshShownEditor, 160)
   }
   if (appState.currentMode !== modeType.edit) {
     $(document.body).css('background-color', 'white')

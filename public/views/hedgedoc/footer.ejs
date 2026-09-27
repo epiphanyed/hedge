@@ -1,21 +1,25 @@
 <% if (typeof menmenCustomUI !== 'undefined' && menmenCustomUI && typeof menmenI18n !== 'undefined' && menmenI18n) { %>
 <script nonce="<%= cspNonce %>">window.__menmenI18n = <%- JSON.stringify(menmenI18n) %>;</script>
 <% } %>
-<script nonce="<%= cspNonce %>">window.__menmenNeedsMathJax = <%= (typeof menmenNeedsMathJax !== 'undefined' && menmenNeedsMathJax) ? 'true' : 'false' %>;</script>
+<script nonce="<%= cspNonce %>">window.__menmenNeedsMathJax = <%= (typeof menmenNeedsMathJax !== 'undefined' && menmenNeedsMathJax) ? 'true' : 'false' %>;window.__menmenCustomUI = <%= (typeof menmenCustomUI !== 'undefined' && menmenCustomUI) ? 'true' : 'false' %>;</script>
 <% if (typeof menmenNeedsMathJax !== 'undefined' && menmenNeedsMathJax) { %>
 <link rel="preload" href="<%- serverURL %>/build/fonts/HTML-CSS/TeX/woff/MathJax_Main-Regular.woff?V=2.7.9" as="font" type="font/woff" crossorigin="anonymous">
 <link rel="preload" href="<%- serverURL %>/build/fonts/HTML-CSS/TeX/woff/MathJax_Math-Italic.woff?V=2.7.9" as="font" type="font/woff" crossorigin="anonymous">
 <link rel="preload" href="<%- serverURL %>/build/fonts/HTML-CSS/TeX/woff/MathJax_Size1-Regular.woff?V=2.7.9" as="font" type="font/woff" crossorigin="anonymous">
 <% } %>
 <script nonce="<%= cspNonce %>">(function(){window.__menmenHubPending=window.__menmenHubPending||[];if(!window.MathJax)window.MathJax={};if(!window.MathJax.Hub||window.MathJax.Hub.__menmenStub){window.MathJax.Hub={__menmenStub:true,Queue:function(){window.__menmenHubPending.push([].slice.call(arguments))}};}})();</script>
-<script src="<%- serverURL %>/js/menmen-mathjax-loader.js?v=<%= (typeof menmenAssetVersion !== 'undefined' && menmenAssetVersion) ? menmenAssetVersion : '2026091024' %>" defer></script>
+<script src="<%- serverURL %>/js/menmen-mathjax-loader.js?v=2026092731" defer></script>
 <%- include('../build/index-pack-scripts') %>
 <% if (typeof menmenCustomUI !== 'undefined' && menmenCustomUI) {
-  var menmenJsVersion = (typeof menmenAssetVersion !== 'undefined' && menmenAssetVersion) ? menmenAssetVersion : '2026091103';
+  var menmenJsVersion = (typeof menmenAssetVersion !== 'undefined' && menmenAssetVersion) ? menmenAssetVersion : '2026092722';
 %>
 <script src="<%- serverURL %>/js/menmen-online.js?v=<%= menmenJsVersion %>" defer></script>
 <script src="<%- serverURL %>/js/menmen-toc.js?v=<%= menmenJsVersion %>" defer></script>
 <script src="<%- serverURL %>/js/menmen-fullscreen.js?v=<%= menmenJsVersion %>" defer></script>
 <script src="<%- serverURL %>/js/menmen-view-layout.js?v=<%= menmenJsVersion %>" defer></script>
+<script src="<%- serverURL %>/js/menmen-image-lightbox.browser.js?v=<%= menmenJsVersion %>-zoom1" defer></script>
 <script src="<%- serverURL %>/js/menmen-translate-draft.js?v=<%= menmenJsVersion %>" defer></script>
+<script src="<%- serverURL %>/js/menmen-ink-icons.browser.js?v=2026092724" defer></script>
+<script src="<%- serverURL %>/js/menmen-editor-fix.js?v=<%= menmenJsVersion %>-ink3" defer></script>
+<script src="<%- serverURL %>/js/menmen-ink-recog-patch.js?v=<%= menmenJsVersion %>-ink3" defer></script>
 <% } %>

@@ -9,6 +9,12 @@ import escapeHTML from 'escape-html'
 
 import getUIElements from './lib/editor/ui-elements'
 import { manimHighlightRender, processManimBlocks, exportManimBlocks } from './menmen-manim'
+import { processGeo3dBlocks } from './menmen-geo3d'
+import { processChemBlocks } from './menmen-chem'
+import { bindPreviewImageLightbox } from './menmen-image-lightbox'
+import { processCellvizBlocks } from './menmen-cellviz'
+import { processAsyBlocks } from './menmen-asy'
+import { processHwReferences } from './menmen-hw-ref'
 
 import markdownit from 'markdown-it'
 import markdownitContainer from 'markdown-it-container'
@@ -418,14 +424,16 @@ export function finishView (view) {
   })
   // manim
   processManimBlocks(view)
-  // geo3d / chem / cellviz (async chunk)
-  require.ensure([], function (requireCards) {
-    requireCards('./menmen-geo3d').processGeo3dBlocks(view)
-    requireCards('./menmen-chem').processChemBlocks(view)
-    requireCards('./menmen-cellviz').processCellvizBlocks(view)
-    requireCards('./menmen-asy').processAsyBlocks(view)
-    requireCards('./menmen-hw-ref').processHwReferences(view)
-  }, 'menmen-cards')
+  // geo3d / chem / cellviz (sync — require.ensure → broken Promise.resolve under webpack 5)
+  try {
+    processGeo3dBlocks(view)
+    processChemBlocks(view)
+    processCellvizBlocks(view)
+    processAsyBlocks(view)
+    processHwReferences(view)
+  } catch (err) {
+    console.error('menmen-cards failed', err)
+  }
   // image href new window(emoji not included)
   const images = view.find('img.raw[src]').removeClass('raw')
   images.each((key, value) => {
@@ -556,6 +564,9 @@ export function finishView (view) {
   } catch (err) {
     console.warn(err)
     if (window.viewAjaxCallback) window.viewAjaxCallback()
+  }
+  if (window.__menmenCustomUI !== false) {
+    bindPreviewImageLightbox(view)
   }
   // render title
   document.title = renderTitle(view)

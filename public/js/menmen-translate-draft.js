@@ -1,6 +1,5 @@
-'use strict'
-
-(function () {
+;(function () {
+  'use strict'
   function readQuery () {
     var params = new URLSearchParams(window.location.search)
     return {

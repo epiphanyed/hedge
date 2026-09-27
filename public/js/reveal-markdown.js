@@ -6,15 +6,16 @@ import { md } from './extra'
  * markdown inside of presentations as well as loading
  * of external markdown documents.
  */
-(function (root, factory) {
-  if (typeof exports === 'object') {
-    module.exports = factory()
-  } else {
-    // Browser globals (root is window)
-    root.RevealMarkdown = factory()
-    root.RevealMarkdown.initialize()
+(function (factory) {
+  const api = factory()
+  if (typeof module === 'object' && module.exports) {
+    module.exports = api
   }
-}(this, function () {
+  if (typeof window !== 'undefined') {
+    window.RevealMarkdown = api
+  }
+  return api
+}(function () {
   const DEFAULT_SLIDE_SEPARATOR = '^\r?\n---\r?\n$'
   const DEFAULT_NOTES_SEPARATOR = '^note:'
   const DEFAULT_ELEMENT_ATTRIBUTES_SEPARATOR = '\\.element\\s*?(.+?)$'

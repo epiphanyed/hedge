@@ -122,7 +122,7 @@ async function submitChemRender ($c, parsed) {
     const result = job.status === 'done' ? job : await pollChemJob(job.scope, job.hash)
     const urls = result.urls || {}
     if (urls.svg) {
-      $c.find('.tab-2d').html(`<img src="${escapeHTML(urls.svg)}" alt="2D structure"/>`)
+      $c.find('.tab-2d').html(`<img class="chem-2d-img" src="${escapeHTML(urls.svg)}" alt="2D structure"/>`)
       $c.attr('data-chem-rendered', '1')
       stateMap.set($c.attr('data-chem-key'), Object.assign({}, result, { scope: job.scope, hash: job.hash }))
     } else {
@@ -224,42 +224,92 @@ function show3dPlaceholder ($panel, $c, onActivate) {
   $panel.find('.chem-3d-activate').on('click', onActivate)
 }
 
+let load3dMolPromise = null
+
+/** Webpack 5 下 require.ensure(['3dmol']) 会误解析 node_modules；async 空 deps 又不拉 chunk。改走静态 3Dmol-min.js。 */
+function load3dMolModule () {
+  if (window.$3Dmol) return Promise.resolve(window.$3Dmol)
+  if (load3dMolPromise) return load3dMolPromise
+  load3dMolPromise = new Promise((resolve, reject) => {
+    const src = `${serverurl}/js/vendor/3Dmol-min.js`
+    const mark = 'data-menmen-3dmol'
+    const existing = document.querySelector(`script[${mark}]`)
+    if (existing) {
+      if (window.$3Dmol) {
+        resolve(window.$3Dmol)
+        return
+      }
+      existing.addEventListener('load', () => {
+        if (window.$3Dmol) resolve(window.$3Dmol)
+        else reject(new Error('3D 模块加载失败'))
+      })
+      existing.addEventListener('error', () => reject(new Error('3D 模块加载失败')))
+      return
+    }
+    const script = document.createElement('script')
+    script.src = src
+    script.async = true
+    script.setAttribute(mark, '1')
+    script.onload = () => {
+      if (window.$3Dmol) resolve(window.$3Dmol)
+      else reject(new Error('3D 模块加载失败'))
+    }
+    script.onerror = () => reject(new Error('3D 模块加载失败'))
+    document.head.appendChild(script)
+  })
+  return load3dMolPromise
+}
+
+function refresh3dViewer ($c) {
+  const key = $c.attr('data-chem-key')
+  const entry = viewerMap.get(key)
+  if (!entry || !entry.viewer) return false
+  try {
+    entry.viewer.resize()
+    entry.viewer.render()
+    return true
+  } catch (e) {
+    return false
+  }
+}
+
 function mount3dViewer ($c, sdfUrl) {
   const key = $c.attr('data-chem-key')
   const $panel = $c.find('.tab-3d')
 
   if (viewerMap.has(key) && $c.attr('data-chem-3d-ready')) {
     touchViewerLru(key)
+    if (!refresh3dViewer($c)) mount3dViewer($c, sdfUrl)
     return
   }
 
   evictViewers(key)
   $panel.html('<div class="menmen-card-loading">加载 3D…</div>')
 
-  require.ensure([], (req) => {
-    $panel.html('<div class="chem-3d-viewer chem-3d-active" style="height:280px;position:relative;"></div>')
-    const el = $panel.find('.chem-3d-viewer')[0]
-    const $3Dmol = req('3dmol')
-    const viewer = $3Dmol.createViewer(el, { backgroundColor: 'white' })
-    fetch(sdfUrl, { credentials: 'same-origin' })
-      .then(r => {
-        if (!r.ok) throw new Error('SDF fetch failed')
-        return r.text()
-      })
-      .then(sdf => {
-        viewer.addModel(sdf, 'sdf')
-        viewer.setStyle({}, { stick: { radius: 0.15 }, sphere: { scale: 0.25 } })
-        viewer.zoomTo()
-        viewer.render()
-        viewerMap.set(key, { viewer, el })
-        touchViewerLru(key)
-        $c.attr('data-chem-3d-ready', '1')
-        save3dSnapshot($c, el)
-      })
-      .catch(e => {
-        $panel.html(`<div class="alert alert-warning">${escapeHTML(e.message)}</div>`)
-      })
-  }, 'vendor-chem')
+  load3dMolModule()
+    .then(($3Dmol) => {
+      $panel.html('<div class="chem-3d-viewer chem-3d-active" style="height:280px;position:relative;"></div>')
+      const el = $panel.find('.chem-3d-viewer')[0]
+      const viewer = $3Dmol.createViewer(el, { backgroundColor: 'white' })
+      return fetch(sdfUrl, { credentials: 'same-origin' })
+        .then(r => {
+          if (!r.ok) throw new Error('SDF fetch failed')
+          return r.text()
+        })
+        .then(sdf => {
+          viewer.addModel(sdf, 'sdf')
+          viewer.setStyle({}, { stick: { radius: 0.15 }, sphere: { scale: 0.25 } })
+          viewer.zoomTo()
+          viewer.render()
+          viewerMap.set(key, { viewer, el })
+          touchViewerLru(key)
+          $c.attr('data-chem-3d-ready', '1')
+          save3dSnapshot($c, el)
+        })
+    })
+    .catch(e => {
+      $panel.html(`<div class="alert alert-warning">${escapeHTML(e.message || '3D 加载失败')}</div>`)
+    })
 }
 
 function load3dTab ($c) {
@@ -268,7 +318,11 @@ function load3dTab ($c) {
   const sdfUrl = state && state.urls && state.urls.sdf
   const $panel = $c.find('.tab-3d')
   if (!sdfUrl) {
-    $panel.html('<div class="menmen-card-loading">无 3D 构象（分子过大或未生成）</div>')
+    if (!$c.attr('data-chem-rendered')) {
+      $panel.html('<div class="menmen-card-loading">等待 2D 渲染完成…</div>')
+    } else {
+      $panel.html('<div class="menmen-card-loading">无 3D 构象（分子过大或未生成）</div>')
+    }
     return
   }
 

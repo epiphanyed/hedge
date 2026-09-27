@@ -75,16 +75,8 @@ function scanGeoChemCellviz ($view) {
 }
 
 export function processHwReferences (view) {
-  const root = view[0]
-  if (!root) return
-
-  walkComments(root, (comment) => {
-    const m = HW_COMMENT_RE.exec((comment.data || '').trim())
-    if (!m) return
-    const hash = m[1]
-    const mathEl = findNextMathBlock(comment)
-    if (mathEl) addEditButton(mathEl, hash)
-  })
-
-  scanGeoChemCellviz(view)
+  // 预览区不展示「编辑笔迹」；并清掉 partialUpdate 留下的旧按钮节点
+  if (view && view.find) {
+    view.find('.menmen-hw-edit-wrap').remove()
+  }
 }

@@ -73,7 +73,10 @@
 
   function typesetPending () {
     if (!isRealHub(realHub)) return
-    var nodes = document.querySelectorAll('#doc span.mathjax')
+    var root = previewRoot()
+    var nodes = root
+      ? root.querySelectorAll('span.mathjax')
+      : document.querySelectorAll('#doc span.mathjax, .ui-view-area span.mathjax')
     if (!nodes.length) return
     realHub.Queue(['Typeset', realHub, Array.prototype.slice.call(nodes)])
   }
@@ -131,8 +134,16 @@
     })
   }
 
+  function shouldEagerLoadMathJax () {
+    return !!(window.__menmenNeedsMathJax || window.__menmenCustomUI)
+  }
+
+  function previewRoot () {
+    return document.querySelector('.ui-view-area .markdown-body') || document.getElementById('doc')
+  }
+
   function watchPreview () {
-    var doc = document.getElementById('doc')
+    var doc = previewRoot()
     if (!doc) return
     var obs = new MutationObserver(function () {
       if (doc.querySelector('span.mathjax')) {
@@ -145,12 +156,12 @@
   document.addEventListener('DOMContentLoaded', function () {
     installHubQueue()
     watchPreview()
-    if (window.__menmenNeedsMathJax) {
+    if (shouldEagerLoadMathJax()) {
       window.menmenEnsureMathJax(typesetPending)
     }
   })
 
-  if (window.__menmenNeedsMathJax) {
+  if (shouldEagerLoadMathJax()) {
     window.menmenEnsureMathJax(function () {})
   }
 })()
