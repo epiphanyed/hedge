@@ -32,6 +32,7 @@ require('prismjs/components/prism-makefile')
 require('prismjs/components/prism-gherkin')
 
 require('./lib/common/login')
+require('./menmen-hedge-note-broadcast')
 require('./locale')
 require('../vendor/md-toc')
 const ui = getUIElements()
@@ -1072,6 +1073,7 @@ md.use(require('markdown-it-mathjax')({
   afterDisplayMath: '\\]</span>'
 }))
 md.use(require('markdown-it-imsize'))
+md.use(require('./markdown-it-issue-badge'))
 
 md.use(require('markdown-it-emoji'), {
   shortcuts: {}
