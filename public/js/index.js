@@ -993,6 +993,15 @@ function applyMenmenReadonly () {
   }
 }
 
+function applyMenmenEditable () {
+  menmenReadonly = false
+  $('body').removeClass('menmen-readonly')
+  if (typeof editor !== 'undefined' && editor) {
+    editor.setOption('readOnly', false)
+  }
+  $('.ui-edit, .ui-both').removeClass('disabled').css('pointer-events', 'auto')
+}
+
 const MENMEN_AVATAR_VISIBLE = 5
 
 /** 仅展示当前笔记内、未 idle 的协作者（socket 已按 note 房间隔离） */
@@ -2378,8 +2387,21 @@ socket.on('connect', function (data) {
   showStatus(statusType.connected)
   socket.emit('version')
 })
-socket.on('menmen-permission-denied', function () {
+socket.on('menmen-permission-denied', function (data) {
+  if (data && data.canRead === false) {
+    applyMenmenReadonly()
+    if (typeof showWarningModal === 'function') {
+      showWarningModal('您已失去对当前文档的访问权限')
+    }
+    setTimeout(function () {
+      window.location.reload()
+    }, 2000)
+    return
+  }
   applyMenmenReadonly()
+})
+socket.on('menmen-permission-granted', function () {
+  applyMenmenEditable()
 })
 socket.on('version', function (data) {
   if (version !== data.version) {

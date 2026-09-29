@@ -79,20 +79,27 @@ describe('menmen-routes block', function () {
     assert.strictEqual(res.location, 'http://menmen.test/')
   })
 
-  it('TC-P3-R03 GET /p/note returns 403', async function () {
+  it('TC-P3-R03 GET /p/note is not blocked by menmen-routes', async function () {
     const res = await requestApp(buildApp(baseConfig), 'GET', '/p/abc123')
-    assert.strictEqual(res.status, 403)
+    assert.notStrictEqual(res.status, 403)
+    assert.notStrictEqual(res.status, 302)
   })
 
-  it('TC-P3-R04 GET /s/shortid returns 403', async function () {
+  it('TC-P3-R04 GET /s/shortid is not blocked by menmen-routes', async function () {
     const res = await requestApp(buildApp(baseConfig), 'GET', '/s/shortid')
-    assert.strictEqual(res.status, 403)
+    assert.notStrictEqual(res.status, 403)
+    assert.notStrictEqual(res.status, 302)
   })
 
   it('TC-P3-R05 allowed routes pass through when block enabled', async function () {
     const res = await requestApp(buildApp(baseConfig), 'GET', '/ok')
     assert.strictEqual(res.status, 200)
     assert.strictEqual(res.body, 'ok')
+  })
+
+  it('TC-P3-R06 GET /me/delete returns 403', async function () {
+    const res = await requestApp(buildApp(baseConfig), 'GET', '/me/delete/abc')
+    assert.strictEqual(res.status, 403)
   })
 
   it('blockRoutes=false skips redirects', async function () {

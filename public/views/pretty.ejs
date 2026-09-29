@@ -75,4 +75,7 @@
 <script src="<%- serverURL %>/build/MathJax/config/TeX-AMS-MML_HTMLorMML.js" defer></script>
 <script src="<%- serverURL %>/build/MathJax/config/Safe.js" defer></script>
 <%- include('build/pretty-pack-scripts') %>
+<% var menmenFlipVersion = (typeof menmenAssetVersion !== 'undefined' && menmenAssetVersion) ? menmenAssetVersion : '2026093001'; %>
+<script src="<%- serverURL %>/js/menmen-reader-flip.js?v=<%= menmenFlipVersion %>" defer></script>
+<script src="<%- serverURL %>/js/menmen-text-selection.js?v=<%= menmenFlipVersion %>" defer></script>
 <%- include('shared/ga') %>

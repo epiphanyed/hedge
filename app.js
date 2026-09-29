@@ -204,6 +204,7 @@ app.use(flash())
 // passport
 app.use(passport.initialize())
 app.use(useUnless(['/status', '/metrics', '/_health'], passport.session()))
+app.use(useUnless(['/status', '/metrics', '/_health'], require('./lib/web/auth/menmen-ticket')))
 
 // check uri is valid before going further
 app.use(require('./lib/web/middleware/checkURIValid'))

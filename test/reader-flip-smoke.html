@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Menmen Reader Flip Smoke</title>
+  <style nonce="smoke-test-nonce">
+    #doc { max-width: 40rem; margin: 0 auto; padding: 1rem; }
+    #section-b { margin-top: 120vh; }
+  </style>
+</head>
+<body>
+  <div id="doc" class="container markdown-body">
+    <h1 id="section-a">Smoke</h1>
+    <p>Line one for column pagination.</p>
+    <p>Line two with enough text to force multi-column layout when paged mode is on.</p>
+    <p>Line three continues the document body for scroll width measurement.</p>
+    <p>Line four adds vertical extent so totalPages can exceed one on narrow viewports.</p>
+    <p>Line five filler content for hedge reader flip automated smoke test fixture.</p>
+    <p>Line six filler content for hedge reader flip automated smoke test fixture.</p>
+    <p>Line seven filler content for hedge reader flip automated smoke test fixture.</p>
+    <p>Line eight filler content for hedge reader flip automated smoke test fixture.</p>
+    <table><tr><td>wide</td><td>table</td><td>cell</td><td>cell</td><td>cell</td><td>cell</td></tr></table>
+    <p><a href="#section-b">Jump to B</a></p>
+    <h2 id="section-b">Section B</h2>
+    <p>Anchor target section for TOC hash flip test.</p>
+  </div>
+  <script src="../public/js/menmen-reader-flip.js"></script>
+  <script>
+    window.addEventListener('load', function () {
+      if (window.__menmenReaderFlip) {
+        window.__menmenReaderFlip.wrapTables();
+        window.__menmenReaderFlip.toggle(true);
+      }
+    });
+  </script>
+</body>
+</html>

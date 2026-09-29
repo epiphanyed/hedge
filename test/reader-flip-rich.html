@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Menmen Reader Flip Rich Fixture</title>
+  <style>
+    #doc { max-width: 40rem; margin: 0 auto; padding: 1rem; }
+    .menmen-card-shell { border: 1px solid #ccc; padding: 8px; margin: 12px 0; }
+  </style>
+</head>
+<body>
+  <input id="focus-trap" type="text" aria-label="trap" style="position:fixed;top:0;left:0;opacity:0.01;width:40px;height:20px;" />
+  <div id="doc" class="container markdown-body">
+    <p>Filler for pagination width.</p>
+    <p>More filler content for multi-page layout on narrow viewport.</p>
+    <pre>const veryLongSingleLineCode = 'abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz0123456789';</pre>
+    <div class="menmen-card-shell"><button type="button" class="menmen-card-tab">Tab</button><div>Card body</div></div>
+    <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="lazy" />
+    <p>End block.</p>
+  </div>
+  <script src="../public/js/menmen-reader-flip.js"></script>
+  <script>
+    window.addEventListener('load', function () {
+      if (window.__menmenReaderFlip) {
+        window.__menmenReaderFlip.wrapTables();
+        window.__menmenReaderFlip.toggle(true);
+      }
+    });
+  </script>
+</body>
+</html>

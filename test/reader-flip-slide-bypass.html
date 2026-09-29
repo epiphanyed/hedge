@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Menmen Reader Flip Slide Bypass</title>
+</head>
+<body>
+  <div class="reveal"><div class="slides"><section>Slide</section></div></div>
+  <script src="../public/js/menmen-reader-flip.js"></script>
+  <script>
+    window.addEventListener('load', function () {
+      if (window.__menmenReaderFlip) {
+        window.__menmenReaderFlip.toggle(true);
+      }
+    });
+  </script>
+</body>
+</html>

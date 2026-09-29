@@ -56,6 +56,46 @@ body.menmen-custom-ui.menmen-mobile-ua .menmen-view-layout-group {
   display: none !important;
 }
 
+/* 分页精读隐藏顶栏后，布局切换（居中 / Wide / 分页）浮在右上角 */
+body.menmen-reader-paged .menmen-paged-layout-dock {
+  position: fixed;
+  top: max(8px, env(safe-area-inset-top, 0px));
+  right: max(12px, env(safe-area-inset-right, 0px));
+  z-index: 10001;
+  pointer-events: auto;
+  display: flex;
+  gap: 6px;
+}
+
+body.menmen-reader-paged .menmen-paged-layout-dock .menmen-view-layout-group {
+  display: inline-flex !important;
+}
+
+body.menmen-reader-paged .menmen-paged-layout-dock .menmen-view-layout-btn,
+body.menmen-reader-paged .menmen-paged-layout-dock .menmen-paged-exit-btn {
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
+}
+
+body.menmen-reader-paged.ui-night .menmen-paged-layout-dock .menmen-view-layout-btn,
+body.menmen-reader-paged.ui-night .menmen-paged-layout-dock .menmen-paged-exit-btn {
+  background: rgba(15, 23, 42, 0.88);
+  color: #e2e8f0;
+}
+
+body.menmen-reader-paged .menmen-paged-exit-btn {
+  font-size: 13px;
+  padding-left: 10px;
+  padding-right: 12px;
+  white-space: nowrap;
+}
+
+body.menmen-reader-paged .menmen-paged-exit-btn .fa-times {
+  opacity: 0.75;
+}
+
 .menmen-custom-ui .nav-mobile .menmen-view-layout-group {
   margin-right: 4px;
 }

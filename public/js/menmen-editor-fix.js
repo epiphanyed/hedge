@@ -68,7 +68,17 @@
     return true
   }
 
+  function readerFlipPaginating () {
+    try {
+      var flip = window.__menmenReaderFlip
+      return !!(flip && typeof flip.isPaginating === 'function' && flip.isPaginating())
+    } catch (e) {
+      return false
+    }
+  }
+
   function scheduleRefresh () {
+    if (readerFlipPaginating()) return
     if (refreshTimer) clearTimeout(refreshTimer)
     refreshEditor()
     if (typeof requestAnimationFrame === 'function') requestAnimationFrame(refreshEditor)
@@ -88,6 +98,7 @@
     if (!area) return
     observing = true
     var ro = new ResizeObserver(function () {
+      if (readerFlipPaginating()) return
       if (editAreaVisible()) scheduleRefresh()
       if (padOpen) placePad()
     })

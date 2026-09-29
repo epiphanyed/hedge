@@ -3,19 +3,21 @@
 const assert = require('assert')
 const menmenPerm = require('../../lib/menmen-perm')
 
+function placementOk (sql) {
+  if (sql.includes('description_article_id') && sql.includes('sys_project WHERE')) return []
+  if (sql.includes('mmge_node')) return []
+  if (sql.includes('sys_project_article_node') && sql.includes('LIMIT 1')) return [{ ok: 1 }]
+  return null
+}
+
 function createMockPool (handlers) {
   let queryCount = 0
   return {
-    getConnection: async function () {
-      return {
-        query: async function (opts, params) {
-          queryCount++
-          const sql = typeof opts === 'string' ? opts : opts.sql
-          const rows = handlers(sql, params, queryCount)
-          return [rows]
-        },
-        release: function () {}
-      }
+    query: async function (opts, params) {
+      queryCount++
+      const sql = typeof opts === 'string' ? opts : opts.sql
+      const rows = handlers(sql, params, queryCount)
+      return [rows]
     },
     getQueryCount: function () {
       return queryCount
@@ -41,8 +43,13 @@ describe('menmen-perm', function () {
   it('TC-P1-U03 admin short-circuit', async function () {
     const pool = createMockPool(function (sql) {
       if (sql.includes('FROM sys_user WHERE')) return [{ id: 1 }]
+      if (sql.includes('sys_article') && sql.includes('access_mode')) {
+        return [{ access_mode: 0, is_deleted: 0 }]
+      }
+      const p = placementOk(sql)
+      if (p !== null) return p
       if (sql.includes('COUNT(1)')) return [{ cnt: 1 }]
-      throw new Error('should not reach frozen/grant: ' + sql)
+      return []
     })
     menmenPerm._setPoolForTests(pool)
     const ok = await menmenPerm.checkCanEdit('a_1', 'admin')
@@ -53,7 +60,9 @@ describe('menmen-perm', function () {
     const pool = createMockPool(function (sql) {
       if (sql.includes('FROM sys_user WHERE')) return [{ id: 2 }]
       if (sql.includes('COUNT(1)')) return [{ cnt: 0 }]
-      if (sql.includes('access_mode')) return [{ access_mode: 1 }]
+      if (sql.includes('access_mode')) return [{ access_mode: 1, is_deleted: 0 }]
+      const p = placementOk(sql)
+      if (p !== null) return p
       throw new Error('unexpected: ' + sql)
     })
     menmenPerm._setPoolForTests(pool)
@@ -64,7 +73,9 @@ describe('menmen-perm', function () {
     const pool = createMockPool(function (sql) {
       if (sql.includes('FROM sys_user WHERE')) return [{ id: 2 }]
       if (sql.includes('COUNT(1)')) return [{ cnt: 0 }]
-      if (sql.includes('access_mode')) return [{ access_mode: 2 }]
+      if (sql.includes('access_mode')) return [{ access_mode: 2, is_deleted: 0 }]
+      const p = placementOk(sql)
+      if (p !== null) return p
       throw new Error('unexpected')
     })
     menmenPerm._setPoolForTests(pool)
@@ -75,9 +86,11 @@ describe('menmen-perm', function () {
     const pool = createMockPool(function (sql) {
       if (sql.includes('FROM sys_user WHERE')) return [{ id: 3 }]
       if (sql.includes('COUNT(1)')) return [{ cnt: 0 }]
-      if (sql.includes('access_mode')) return [{ access_mode: 0 }]
-      if (sql.includes('description_article_id')) return []
-      if (sql.includes('sys_project_node')) return [{ ok: 1 }]
+      if (sql.includes('access_mode')) return [{ access_mode: 0, is_deleted: 0 }]
+      if (sql.includes('description_article_id') && sql.includes('sys_project WHERE')) return []
+      const p = placementOk(sql)
+      if (p !== null) return p
+      if (sql.includes('sys_project_article_node') && sql.includes('create_by')) return [{ ok: 1 }]
       throw new Error('unexpected: ' + sql)
     })
     menmenPerm._setPoolForTests(pool)
@@ -88,9 +101,11 @@ describe('menmen-perm', function () {
     const pool = createMockPool(function (sql) {
       if (sql.includes('FROM sys_user WHERE')) return [{ id: 5 }]
       if (sql.includes('COUNT(1)')) return [{ cnt: 0 }]
-      if (sql.includes('access_mode')) return [{ access_mode: 0 }]
-      if (sql.includes('description_article_id')) return []
-      if (sql.includes('sys_project_node')) return [{ ok: 1 }]
+      if (sql.includes('access_mode')) return [{ access_mode: 0, is_deleted: 0 }]
+      if (sql.includes('description_article_id') && sql.includes('sys_project WHERE')) return []
+      const p = placementOk(sql)
+      if (p !== null) return p
+      if (sql.includes('create_by')) return [{ ok: 1 }]
       throw new Error('unexpected: ' + sql)
     })
     menmenPerm._setPoolForTests(pool)
@@ -101,9 +116,11 @@ describe('menmen-perm', function () {
     const pool = createMockPool(function (sql) {
       if (sql.includes('FROM sys_user WHERE')) return [{ id: 6 }]
       if (sql.includes('COUNT(1)')) return [{ cnt: 0 }]
-      if (sql.includes('access_mode')) return [{ access_mode: 0 }]
-      if (sql.includes('description_article_id')) return []
-      if (sql.includes('sys_project_node')) return [{ ok: 0 }]
+      if (sql.includes('access_mode')) return [{ access_mode: 0, is_deleted: 0 }]
+      if (sql.includes('description_article_id') && sql.includes('sys_project WHERE')) return []
+      const p = placementOk(sql)
+      if (p !== null) return p
+      if (sql.includes('create_by')) return [{ ok: 0 }]
       if (sql.includes('sys_user_article')) return [{ ok: 1 }]
       throw new Error('unexpected: ' + sql)
     })
@@ -115,11 +132,13 @@ describe('menmen-perm', function () {
     const pool = createMockPool(function (sql) {
       if (sql.includes('FROM sys_user WHERE')) return [{ id: 8 }]
       if (sql.includes('COUNT(1)')) return [{ cnt: 0 }]
-      if (sql.includes('access_mode')) return [{ access_mode: 0 }]
-      if (sql.includes('description_article_id')) return []
-      if (sql.includes('sys_project_node')) return [{ ok: 0 }]
+      if (sql.includes('access_mode')) return [{ access_mode: 0, is_deleted: 0 }]
+      if (sql.includes('description_article_id') && sql.includes('sys_project WHERE')) return []
+      const p = placementOk(sql)
+      if (p !== null) return p
+      if (sql.includes('create_by')) return [{ ok: 0 }]
       if (sql.includes('sys_user_article')) return [{ ok: 0 }]
-      if (sql.includes('sys_group_article')) return [{ ok: 0 }]
+      if (sql.includes('permission >= 1')) return [{ ok: 0 }]
       return [{ ok: 0 }]
     })
     menmenPerm._setPoolForTests(pool)
@@ -130,11 +149,13 @@ describe('menmen-perm', function () {
     const pool = createMockPool(function (sql) {
       if (sql.includes('FROM sys_user WHERE')) return [{ id: 4 }]
       if (sql.includes('COUNT(1)')) return [{ cnt: 0 }]
-      if (sql.includes('access_mode')) return [{ access_mode: 0 }]
-      if (sql.includes('description_article_id')) return []
-      if (sql.includes('sys_project_node')) return [{ ok: 0 }]
+      if (sql.includes('access_mode')) return [{ access_mode: 0, is_deleted: 0 }]
+      if (sql.includes('description_article_id') && sql.includes('sys_project WHERE')) return []
+      const p = placementOk(sql)
+      if (p !== null) return p
+      if (sql.includes('create_by')) return [{ ok: 0 }]
       if (sql.includes('sys_user_article')) return [{ ok: 0 }]
-      if (sql.includes('sys_group_article')) return [{ ok: 1 }]
+      if (sql.includes('permission >= 1')) return [{ ok: 1 }]
       return [{ ok: 0 }]
     })
     menmenPerm._setPoolForTests(pool)
@@ -145,10 +166,13 @@ describe('menmen-perm', function () {
     const pool = createMockPool(function (sql) {
       if (sql.includes('FROM sys_user WHERE')) return [{ id: 99 }]
       if (sql.includes('COUNT(1)')) return [{ cnt: 0 }]
-      if (sql.includes('access_mode')) return [{ access_mode: 0 }]
-      if (sql.includes('sys_project_node')) return [{ ok: 0 }]
+      if (sql.includes('access_mode')) return [{ access_mode: 0, is_deleted: 0 }]
+      if (sql.includes('description_article_id') && sql.includes('sys_project WHERE')) return []
+      const p = placementOk(sql)
+      if (p !== null) return p
+      if (sql.includes('create_by')) return [{ ok: 0 }]
       if (sql.includes('sys_user_article')) return [{ ok: 0 }]
-      if (sql.includes('sys_group_article')) return [{ ok: 0 }]
+      if (sql.includes('permission >= 1')) return [{ ok: 0 }]
       return [{ ok: 0 }]
     })
     menmenPerm._setPoolForTests(pool)
@@ -163,9 +187,11 @@ describe('menmen-perm', function () {
         evalCalls++
         return [{ cnt: 0 }]
       }
-      if (sql.includes('access_mode')) return [{ access_mode: 0 }]
-      if (sql.includes('description_article_id')) return []
-      if (sql.includes('sys_project_node')) return [{ ok: 1 }]
+      if (sql.includes('access_mode')) return [{ access_mode: 0, is_deleted: 0 }]
+      if (sql.includes('description_article_id') && sql.includes('sys_project WHERE')) return []
+      const p = placementOk(sql)
+      if (p !== null) return p
+      if (sql.includes('create_by')) return [{ ok: 1 }]
       return [{ ok: 0 }]
     })
     menmenPerm._setPoolForTests(pool)
@@ -176,7 +202,7 @@ describe('menmen-perm', function () {
 
   it('TC-P1-U13 fail-close on mysql error', async function () {
     menmenPerm._setPoolForTests({
-      getConnection: async function () {
+      query: async function () {
         throw new Error('connection refused')
       }
     })
@@ -192,8 +218,10 @@ describe('menmen-perm', function () {
     const pool = createMockPool(function (sql) {
       if (sql.includes('FROM sys_user WHERE')) return [{ id: 10 }]
       if (sql.includes('COUNT(1)')) return [{ cnt: 0 }]
-      if (sql.includes('access_mode')) return [{ access_mode: 0 }]
-      if (sql.includes('description_article_id')) return [{ projectId: 5 }]
+      if (sql.includes('access_mode')) return [{ access_mode: 0, is_deleted: 0 }]
+      if (sql.includes('description_article_id') && sql.includes('sys_project WHERE')) return [{ id: 5 }]
+      const p = placementOk(sql)
+      if (p !== null) return p
       if (sql.includes('sgu.role IN (0, 2)')) return [{ ok: 1 }]
       throw new Error('unexpected: ' + sql)
     })
@@ -205,9 +233,11 @@ describe('menmen-perm', function () {
     const pool = createMockPool(function (sql) {
       if (sql.includes('FROM sys_user WHERE')) return [{ id: 11 }]
       if (sql.includes('COUNT(1)')) return [{ cnt: 0 }]
-      if (sql.includes('access_mode')) return [{ access_mode: 0 }]
-      if (sql.includes('description_article_id')) return [{ projectId: 5 }]
-      if (sql.includes('sgu.role IN (0, 2)')) return [{ ok: 0 }]
+      if (sql.includes('access_mode')) return [{ access_mode: 0, is_deleted: 0 }]
+      if (sql.includes('description_article_id') && sql.includes('sys_project WHERE')) return [{ id: 5 }]
+      const p = placementOk(sql)
+      if (p !== null) return p
+      if (sql.includes('sgu.role IN (0, 2)')) return []
       throw new Error('should not reach group write: ' + sql)
     })
     menmenPerm._setPoolForTests(pool)

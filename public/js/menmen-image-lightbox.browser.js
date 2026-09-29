@@ -99,9 +99,19 @@
     document.addEventListener('dblclick', onDblClick, true)
   }
 
+  function signalReady () {
+    try {
+      document.dispatchEvent(new CustomEvent('menmen-lightbox-ready'))
+    } catch (e) { /* IE */ }
+  }
+
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', bind)
+    document.addEventListener('DOMContentLoaded', function () {
+      bind()
+      signalReady()
+    })
   } else {
     bind()
+    signalReady()
   }
 })()

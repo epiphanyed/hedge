@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Layout sessionStorage restore</title>
+  <style nonce="layout-restore-nonce">
+    #doc { max-width: 40rem; margin: 0 auto; padding: 1rem; }
+  </style>
+</head>
+<body class="menmen-custom-ui">
+  <div id="doc" class="container markdown-body">
+    <p>Layout restore fixture — sessionStorage drives wide/paged without jQuery navbar.</p>
+    <p>Extra lines to enable multi-page when paged mode activates on narrow viewport.</p>
+    <p>Line three filler.</p>
+    <p>Line four filler.</p>
+    <p>Line five filler.</p>
+    <p>Line six filler.</p>
+    <p>Line seven filler.</p>
+    <p>Line eight filler.</p>
+  </div>
+  <script src="../public/js/menmen-reader-flip.js"></script>
+  <script>
+    /* 与 menmen-view-layout.js 的 getLayout / applyLayoutClasses 行为对齐（§80 #70） */
+    (function () {
+      var LAYOUT_KEY = 'menmen-preview-layout';
+      function isMobileUa () {
+        return /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent || '');
+      }
+      function getLayout () {
+        try {
+          var stored = sessionStorage.getItem(LAYOUT_KEY);
+          if (stored === 'wide' || stored === 'paged' || stored === 'centered') return stored;
+        } catch (e) { /* ignore */ }
+        return isMobileUa() ? 'wide' : 'centered';
+      }
+      function applyLayoutClasses (layout) {
+        document.body.classList.toggle('menmen-preview-wide', layout === 'wide');
+        var flip = window.__menmenReaderFlip;
+        if (flip && typeof flip.toggle === 'function') {
+          if (layout === 'paged') flip.toggle(true);
+          else flip.toggle(false);
+        }
+      }
+      window.addEventListener('load', function () {
+        applyLayoutClasses(getLayout());
+      });
+    })();
+  </script>
+</body>
+</html>

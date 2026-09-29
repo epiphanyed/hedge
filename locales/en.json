@@ -140,5 +140,7 @@
     "Exit fullscreen": "Exit fullscreen",
     "View layout": "View layout",
     "Centered": "Centered",
-    "Wide": "Wide"
+    "Wide": "Wide",
+    "Paged": "Paged",
+    "Exit paged mode": "Exit paged mode"
 }
