@@ -23,3 +23,5 @@
 <script src="<%- serverURL %>/js/menmen-editor-fix.js?v=<%= menmenJsVersion %>-ink3" defer></script>
 <script src="<%- serverURL %>/js/menmen-ink-recog-patch.js?v=<%= menmenJsVersion %>-ink3" defer></script>
 <% } %>
+<% var menmenSelectionJsVersion = (typeof menmenAssetVersion !== 'undefined' && menmenAssetVersion) ? menmenAssetVersion : '2026092901'; %>
+<script src="<%- serverURL %>/js/menmen-text-selection.js?v=<%= menmenSelectionJsVersion %>" defer></script>
