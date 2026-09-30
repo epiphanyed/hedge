@@ -2,6 +2,7 @@
 'use strict'
 
 import { noteid } from './lib/config/index'
+import { loadHandwritingForEdit } from './menmen-handwriting'
 
 const HW_COMMENT_RE = /^hw:([a-f0-9]{64})$/
 
@@ -39,12 +40,10 @@ function addEditButton (anchor, hash) {
   btn.textContent = '编辑笔迹'
   btn.title = `hw:${hash}`
   btn.addEventListener('click', () => {
-    require.ensure([], (req) => {
-      req('./menmen-handwriting').loadHandwritingForEdit(hash).catch(err => {
-        console.warn('loadHandwritingForEdit failed', err)
-        alert('无法加载笔迹，请确认已登录且有读权限')
-      })
-    }, 'menmen-ink')
+    loadHandwritingForEdit(hash).catch(err => {
+      console.warn('loadHandwritingForEdit failed', err)
+      alert('无法加载笔迹，请确认已登录且有读权限')
+    })
   })
   const wrap = document.createElement('span')
   wrap.className = 'menmen-hw-edit-wrap'

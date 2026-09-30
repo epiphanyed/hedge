@@ -57,6 +57,9 @@
   var LONG_PRESS_MS = 350;
   var IMG_HOLD_MS = 500;
   var OT_RECALC_DEBOUNCE_MS = 350;
+  var lastHudBridgePost = { current: -1, total: -1, percent: -1 };
+  var readingActiveMs = 0;
+  var readingVisibleSince = null;
 
   function isMobileUa() {
     try {
@@ -98,7 +101,15 @@
       if (window.ReactNativeWebView && typeof window.ReactNativeWebView.postMessage === 'function') {
         window.ReactNativeWebView.postMessage(payload);
       } else if (window.parent && window.parent !== window) {
-        window.parent.postMessage(message, '*');
+        var targetOrigin = '*';
+        try {
+          if (window.__menmenHostOrigin) {
+            targetOrigin = window.__menmenHostOrigin;
+          } else if (document.referrer) {
+            targetOrigin = new URL(document.referrer).origin;
+          }
+        } catch (originErr) { /* keep '*' fallback */ }
+        window.parent.postMessage(message, targetOrigin);
       }
     } catch (e) {
       /* ignore bridge error */
@@ -144,7 +155,7 @@
   function isExcludedInteractiveElement(target) {
     if (!target) return false;
     if (isFlipCircuitBroken()) return true;
-    if (target.closest && target.closest('.menmen-ink-pad, .menmen-ink-overlay, .menmen-img-lightbox, .menmen-card-shell, .menmen-card-tab, .menmen-table-scroller')) return true;
+    if (target.closest && target.closest('.menmen-ink-pad, .menmen-ink-overlay, .menmen-img-lightbox, .menmen-card-shell, .menmen-card-tab, .menmen-table-scroller, .menmen-geo3d-toolbar, .menmen-geo3d-viewport, .geo3d-container')) return true;
     return false;
   }
 
@@ -700,53 +711,206 @@
       '<span>' + percent + '%</span>'
     ].join('');
 
-    postToHost({
-      type: 'menmen-hedgedoc-page-change',
-      current: currentPage + 1,
-      total: totalPages,
-      percent: percent
+    var bridgeCurrent = currentPage + 1;
+    if (
+      lastHudBridgePost.current !== bridgeCurrent ||
+      lastHudBridgePost.total !== totalPages ||
+      lastHudBridgePost.percent !== percent
+    ) {
+      lastHudBridgePost.current = bridgeCurrent;
+      lastHudBridgePost.total = totalPages;
+      lastHudBridgePost.percent = percent;
+      postToHost({
+        type: 'menmen-hedgedoc-page-change',
+        current: bridgeCurrent,
+        total: totalPages,
+        percent: percent
+      });
+    }
+  }
+
+  function accumulateReadingVisibleTime() {
+    if (readingVisibleSince != null) {
+      readingActiveMs += Date.now() - readingVisibleSince;
+      readingVisibleSince = null;
+    }
+  }
+
+  var DEPTH_QUEUE_KEY = '@menmen:offline_depth_queue';
+  var DEPTH_ACK_RETRY_MS = 12000;
+  /** 无宿主 Ack 熔断上限；Plato 契约：plato/__tests__/readerFlipAcceptanceMatrix.contract.test.ts #11 */
+  var DEPTH_ACK_MAX_RETRIES = 5;
+  var depthAckRetryTimer = null;
+  var depthAckBackoffMs = DEPTH_ACK_RETRY_MS;
+
+  function newDepthEventId() {
+    return 'depth_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10);
+  }
+
+  function readDepthQueue() {
+    try {
+      var raw = localStorage.getItem(DEPTH_QUEUE_KEY);
+      var queue = raw ? JSON.parse(raw) : [];
+      return Array.isArray(queue) ? queue : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function writeDepthQueue(queue) {
+    try {
+      if (!queue || !queue.length) {
+        localStorage.removeItem(DEPTH_QUEUE_KEY);
+      } else {
+        localStorage.setItem(DEPTH_QUEUE_KEY, JSON.stringify(queue.slice(-50)));
+      }
+    } catch (e) { /* ignore */ }
+  }
+
+  function acknowledgeDepthEvent(eventId) {
+    if (!eventId) return;
+    var next = readDepthQueue().filter(function (item) {
+      return item && item.eventId !== eventId;
     });
+    writeDepthQueue(next);
+    depthAckBackoffMs = DEPTH_ACK_RETRY_MS;
+    if (next.length && !depthAckRetryTimer) {
+      scheduleDepthAckRetry();
+    }
+  }
+
+  function pruneExhaustedDepthQueue() {
+    var queue = readDepthQueue();
+    var valid = queue.filter(function (item) {
+      return item && (item.ackAttempts || 0) < DEPTH_ACK_MAX_RETRIES;
+    });
+    if (valid.length !== queue.length) {
+      writeDepthQueue(valid);
+    }
+    return valid;
+  }
+
+  function scheduleDepthAckRetry() {
+    var valid = pruneExhaustedDepthQueue();
+    if (!valid.length) {
+      if (depthAckRetryTimer) {
+        clearTimeout(depthAckRetryTimer);
+        depthAckRetryTimer = null;
+      }
+      depthAckBackoffMs = DEPTH_ACK_RETRY_MS;
+      return;
+    }
+    if (depthAckRetryTimer) return;
+    depthAckRetryTimer = setTimeout(function () {
+      depthAckRetryTimer = null;
+      flushDepthQueueToHost();
+    }, depthAckBackoffMs);
+  }
+
+  function enqueueDepthReport(payload) {
+    var queue = readDepthQueue();
+    var exists = queue.some(function (item) {
+      return item && item.eventId === payload.eventId;
+    });
+    if (!exists) {
+      queue.push(payload);
+      writeDepthQueue(queue);
+    }
+  }
+
+  function postDepthReport(payload) {
+    if (!payload.eventId) payload.eventId = newDepthEventId();
+    enqueueDepthReport(payload);
+    postToHost(payload);
+    scheduleDepthAckRetry();
+  }
+
+  function flushDepthQueueToHost() {
+    var queue = readDepthQueue();
+    if (!queue.length) return;
+    var retained = [];
+    queue.forEach(function (item) {
+      if (!item || item.type !== 'menmen-reading-depth-reached') return;
+      var attempts = (item.ackAttempts || 0) + 1;
+      if (attempts > DEPTH_ACK_MAX_RETRIES) {
+        try {
+          if (typeof console !== 'undefined' && console.warn) {
+            console.warn('[menmen-reader-flip] depth report dropped after max ack retries:', item.eventId);
+          }
+        } catch (e) { /* ignore */ }
+        return;
+      }
+      item.ackAttempts = attempts;
+      retained.push(item);
+      postToHost(item);
+    });
+    writeDepthQueue(retained);
+    if (retained.length) {
+      depthAckBackoffMs = Math.min(depthAckBackoffMs * 2, 96000);
+      scheduleDepthAckRetry();
+    } else {
+      depthAckBackoffMs = DEPTH_ACK_RETRY_MS;
+    }
   }
 
   function checkReadingDepth() {
     if (depthReported) return;
     var percent = ((currentPage + 1) / totalPages) * 100;
-    var durationSec = (Date.now() - readingStartTime) / 1000;
+    if (typeof document !== 'undefined' && document.hidden && readingVisibleSince != null) {
+      accumulateReadingVisibleTime();
+    } else if (readingVisibleSince == null && !(typeof document !== 'undefined' && document.hidden)) {
+      readingVisibleSince = Date.now();
+    }
+    var liveMs = readingActiveMs + (readingVisibleSince != null ? Date.now() - readingVisibleSince : 0);
+    var durationSec = liveMs / 1000;
     if (percent >= 85 && durationSec >= 20) {
       depthReported = true;
-      var payload = {
+      postDepthReport({
         type: 'menmen-reading-depth-reached',
+        eventId: newDepthEventId(),
         percent: Math.round(percent),
         duration: Math.round(durationSec),
         timestamp: Date.now()
-      };
-      if (typeof window !== 'undefined' && window.navigator && window.navigator.onLine === false) {
-        // 离线状态：暂存至本地队列
-        try {
-          var raw = localStorage.getItem('@menmen:offline_depth_queue');
-          var queue = raw ? JSON.parse(raw) : [];
-          queue.push(payload);
-          localStorage.setItem('@menmen:offline_depth_queue', JSON.stringify(queue.slice(-50)));
-        } catch (e) { /* ignore */ }
-      } else {
-        postToHost(payload);
-      }
+      });
     }
   }
 
-  // 网络恢复时静默回放离线深度阅读队列
+  if (typeof document !== 'undefined' && document.addEventListener) {
+    document.addEventListener('visibilitychange', function onReadingVisibilityChange() {
+      if (!isReaderActive) return;
+      if (document.hidden) {
+        accumulateReadingVisibleTime();
+      } else {
+        readingVisibleSince = Date.now();
+      }
+    });
+  }
+
+  // 网络恢复：重置熔断计数后兜底探测一次（无宿主独立打开 HD 时不永久 12s 定时重试）
+  function probeDepthQueueOnOnline() {
+    var queue = readDepthQueue();
+    if (!queue.length) return;
+    var revived = queue.map(function (item) {
+      if (!item) return item;
+      var copy = {};
+      for (var k in item) {
+        if (Object.prototype.hasOwnProperty.call(item, k)) copy[k] = item[k];
+      }
+      copy.ackAttempts = 0;
+      return copy;
+    });
+    writeDepthQueue(revived);
+    depthAckBackoffMs = DEPTH_ACK_RETRY_MS;
+    flushDepthQueueToHost();
+  }
+
   if (typeof window !== 'undefined') {
     window.addEventListener('online', function onOnlineFlush() {
-      try {
-        var raw = localStorage.getItem('@menmen:offline_depth_queue');
-        if (!raw) return;
-        var queue = JSON.parse(raw);
-        if (Array.isArray(queue) && queue.length > 0) {
-          queue.forEach(function (item) { postToHost(item); });
-          localStorage.removeItem('@menmen:offline_depth_queue');
-        }
-      } catch (e) { /* ignore */ }
+      probeDepthQueueOnOnline();
     });
+    if (readDepthQueue().length) {
+      scheduleDepthAckRetry();
+    }
   }
 
   var toastTimer = null;
@@ -848,8 +1012,7 @@
 
     if (workCallback) workCallback();
 
-    // 在 DOM 布局就绪后重新计算该锚点的新列位置
-    setTimeout(function () {
+    function reflowAfterAnchorLayout() {
       var newPageWidth = getPageWidth();
       var scrollW = doc.scrollWidth;
       totalPages = Math.max(1, Math.ceil(scrollW / newPageWidth));
@@ -861,7 +1024,14 @@
       }
       applyPageTransform(false);
       updateHud();
-    }, 60);
+    }
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(function () {
+        requestAnimationFrame(reflowAfterAnchorLayout);
+      });
+    } else {
+      setTimeout(reflowAfterAnchorLayout, 60);
+    }
   }
 
   function setFontSize(px) {
@@ -1103,6 +1273,7 @@
     window.addEventListener('wheel', function onWheel(e) {
       if (!isReaderActive) return;
       if (isFlipCircuitBroken()) return;
+      if (isExcludedInteractiveElement(e.target)) return;
       if (isInputOrEditor(e.target)) return;
 
       var delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
@@ -1144,13 +1315,20 @@
     }, true);
   }
 
+  function isPrivate172Host(host) {
+    var parts = host.split('.');
+    if (parts.length !== 4 || parts[0] !== '172') return false;
+    var second = parseInt(parts[1], 10);
+    return second >= 16 && second <= 31;
+  }
+
   function isTrustedOrigin(origin) {
     if (!origin) return true;
     try {
       var u = new URL(origin);
       var host = u.hostname;
       if (host === 'localhost' || host === '127.0.0.1' || host === window.location.hostname) return true;
-      if (host.startsWith('192.168.') || host.startsWith('10.') || host.startsWith('172.')) return true;
+      if (host.startsWith('192.168.') || host.startsWith('10.') || isPrivate172Host(host)) return true;
       return false;
     } catch (e) {
       return false;
@@ -1200,6 +1378,8 @@
       } else if (data.type === 'menmen-host-degraded') {
         hostDegraded = !!data.active;
         if (hostDegraded) toggleReader(false);
+      } else if (data.type === 'menmen-reading-depth-ack') {
+        acknowledgeDepthEvent(data.eventId);
       }
   }
 
@@ -1398,6 +1578,11 @@
     if (document.body) {
       document.body.classList.toggle('menmen-reader-paged', isReaderActive);
       if (isReaderActive) {
+        readingStartTime = Date.now();
+        readingActiveMs = 0;
+        readingVisibleSince = (typeof document !== 'undefined' && document.hidden) ? null : Date.now();
+        depthReported = false;
+        lastHudBridgePost = { current: -1, total: -1, percent: -1 };
         injectPaginationStyles();
         ensurePagedControlBar();
         setTimeout(function () {

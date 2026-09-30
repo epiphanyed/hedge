@@ -4,6 +4,8 @@
 import '../css/menmen-cards.css'
 import escapeHTML from 'escape-html'
 import { noteid } from './lib/config/index'
+import * as THREE from 'three'
+import { OrbitControls as OrbitControlsImpl } from 'three/examples/jsm/controls/OrbitControls.js'
 
 const SCENE_LRU_MAX = 16
 const IO_RELEASE_MS = 5000
@@ -16,10 +18,11 @@ const ioSeen = new WeakSet()
 const ioReleaseTimers = new WeakMap()
 
 let sharedRenderer = null
-let THREE = null
-let OrbitControls = null
+const OrbitControls = OrbitControlsImpl
 let activeCardKey = null
 let moStarted = false
+/** @type {Map<string, Promise<void>>} */
+const hydrateInflight = new Map()
 
 function clientHash (input) {
   let hash = 5381
@@ -169,18 +172,7 @@ function bindTabs ($c) {
 }
 
 function ensureThree () {
-  if (THREE) return Promise.resolve()
-  return new Promise((resolve, reject) => {
-    require.ensure([], (req) => {
-      THREE = req('three')
-      try {
-        OrbitControls = req('three/examples/jsm/controls/OrbitControls.js').OrbitControls
-      } catch (e) {
-        OrbitControls = null
-      }
-      resolve()
-    }, 'vendor-3d', reject)
-  })
+  return Promise.resolve()
 }
 
 function ensureSharedRenderer () {
@@ -451,8 +443,73 @@ function computeSectionPolygon (planePts, edges) {
   return uniq
 }
 
-function paintCard (state) {
+function syncCanvasDimensions (state) {
+  if (!state || !state.canvas2d || !state.canvas2d.isConnected || !state.$container) return
+  const $viewport = state.$container.find('.menmen-geo3d-viewport')
+  const $wrap = $viewport.length ? $viewport : state.$container.find('.menmen-card-canvas-wrap')
+  if (!$wrap.length) return
+  const nw = $wrap.width() || state.width || 400
+  const nh = Math.max(160, $wrap.height() || state.height || 280)
+  if (nw !== state.width || nh !== state.height || state.canvas2d.width <= 1) {
+    state.width = nw
+    state.height = nh
+    state.canvas2d.width = nw
+    state.canvas2d.height = nh
+  }
+}
+
+function syncOrbitFromCamera (state) {
+  const { controls, camera } = state
+  if (!controls || !camera || controls.enabled === false) return
+  controls.object = camera
+  controls.target.set(0, 0, 0)
+  if (controls.saveState) controls.saveState()
+}
+
+function blockWheelBubble (el) {
+  if (!el || el.__menmenGeo3dWheelBlock) return
+  el.__menmenGeo3dWheelBlock = true
+  el.addEventListener('wheel', (e) => {
+    e.stopPropagation()
+  }, { passive: false, capture: true })
+}
+
+function configureGeo3dControls (controls) {
+  controls.target.set(0, 0, 0)
+  controls.enableDamping = false
+  controls.enableRotate = true
+  controls.enableZoom = true
+  controls.enablePan = true
+  controls.zoomSpeed = 1.1
+  controls.rotateSpeed = 1.0
+  controls.panSpeed = 0.9
+  controls.screenSpacePanning = false
+  controls.minDistance = 0.8
+  controls.maxDistance = 40
+  if (controls.saveState) controls.saveState()
+}
+
+function wireGeo3dControls (state) {
+  const { camera, canvas2d } = state
+  if (!canvas2d) return null
+  blockWheelBubble(canvas2d)
+  const viewport = canvas2d.closest('.menmen-geo3d-viewport')
+  if (viewport) blockWheelBubble(viewport)
+
+  if (!OrbitControls) {
+    bindManualControls(canvas2d, camera, () => paintCard(state))
+    return null
+  }
+
+  const controls = new OrbitControls(camera, canvas2d)
+  configureGeo3dControls(controls)
+  controls.addEventListener('change', () => paintCard(state))
+  return controls
+}
+
+function paintCard (state, opts = {}) {
   if (!state || !state.canvas2d || !state.canvas2d.isConnected) return
+  syncCanvasDimensions(state)
   const w = state.width || 400
   const h = state.height || 280
   const renderer = ensureSharedRenderer()
@@ -462,7 +519,7 @@ function paintCard (state) {
     state.camera.updateProjectionMatrix()
   }
   if (state.edgeGroup) updateConvexEdges(state.edgeGroup, state.camera)
-  if (state.controls && state.controls.update) state.controls.update()
+  if (opts.syncControls && state.controls && state.controls.update) state.controls.update()
   renderer.render(state.scene, state.camera)
   const ctx = state.canvas2d.getContext('2d')
   ctx.clearRect(0, 0, w, h)
@@ -494,11 +551,20 @@ function deactivateCard (cardKey) {
   if (activeCardKey === cardKey) activeCardKey = null
 }
 
+function ensureCardControls (st) {
+  if (!st || !st.canvas2d || !st.canvas2d.isConnected || st.controls) return
+  st.controls = wireGeo3dControls(st)
+}
+
 function activateCard (cardKey) {
   if (activeCardKey && activeCardKey !== cardKey) deactivateCard(activeCardKey)
   activeCardKey = cardKey
   const st = cardStates.get(cardKey)
-  if (st) paintCard(st)
+  if (st) {
+    ensureCardControls(st)
+    syncCanvasDimensions(st)
+    paintCard(st)
+  }
 }
 
 function buildToolbar ($wrap, state) {
@@ -508,15 +574,22 @@ function buildToolbar ($wrap, state) {
     $b.on('click', fn)
     return $b
   }
+  const applyView = (fn) => {
+    fn()
+    syncOrbitFromCamera(state)
+    paintCard(state, { syncControls: true })
+  }
   $bar.append(mk('复位', () => {
-    state.camera.position.set(2.5, 2, 3.5)
-    state.camera.lookAt(0, 0, 0)
-    if (state.controls && state.controls.reset) state.controls.reset()
-    paintCard(state)
+    applyView(() => {
+      state.camera.position.set(2.5, 2, 3.5)
+      state.camera.lookAt(0, 0, 0)
+      if (state.controls && state.controls.reset) state.controls.reset()
+    })
   }))
-  $bar.append(mk('主视', () => { state.camera.position.set(0, 0, 5); state.camera.lookAt(0, 0, 0); paintCard(state) }))
-  $bar.append(mk('俯视', () => { state.camera.position.set(0, 5, 0.001); state.camera.lookAt(0, 0, 0); paintCard(state) }))
-  $bar.append(mk('左视', () => { state.camera.position.set(-5, 0, 0); state.camera.lookAt(0, 0, 0); paintCard(state) }))
+  $bar.append(mk('主视', () => { applyView(() => { state.camera.position.set(0, 0, 5); state.camera.lookAt(0, 0, 0) }) }))
+  $bar.append(mk('俯视', () => { applyView(() => { state.camera.position.set(0, 5, 0.001); state.camera.lookAt(0, 0, 0) }) }))
+  $bar.append(mk('左视', () => { applyView(() => { state.camera.position.set(-5, 0, 0); state.camera.lookAt(0, 0, 0) }) }))
+  $bar.append('<span class="menmen-geo3d-hint text-muted">拖拽旋转 · 滚轮缩放 · 右键平移</span>')
   $bar.append(mk('正交', () => {
     state.ortho = !state.ortho
     const w = state.width
@@ -533,25 +606,33 @@ function buildToolbar ($wrap, state) {
     state.camera.lookAt(0, 0, 0)
     if (state.controls) {
       state.controls.object = state.camera
-      state.controls.update()
+      syncOrbitFromCamera(state)
     }
-    paintCard(state)
+    paintCard(state, { syncControls: true })
   }))
   $wrap.prepend($bar)
 }
 
 function setupInteractiveCard ($panel, ir, cacheKey, $container) {
   const cardKey = $container.attr('data-geo3d-key')
-  deactivateCard(cardKey)
+  const prev = cardStates.get(cardKey)
+  if (prev) {
+    if (prev.controls && prev.controls.dispose) prev.controls.dispose()
+    if (prev.ro) prev.ro.disconnect()
+    cardStates.delete(cardKey)
+  }
 
   const wrap = $('<div class="menmen-card-canvas-wrap"></div>')
+  const $viewport = $('<div class="menmen-geo3d-viewport"></div>')
   const canvas2d = document.createElement('canvas')
+  canvas2d.className = 'menmen-geo3d-canvas'
   const $labelLayer = $('<div class="geo3d-label-layer"></div>')
-  wrap.append(canvas2d).append($labelLayer)
+  $viewport.append(canvas2d).append($labelLayer)
+  wrap.append($viewport)
   $panel.empty().append(wrap)
 
   const w = wrap.width() || 400
-  const h = wrap.height() || 280
+  const h = Math.max(160, (wrap.height() || 280))
   canvas2d.width = w
   canvas2d.height = h
 
@@ -583,31 +664,23 @@ function setupInteractiveCard ($panel, ir, cacheKey, $container) {
     controls: null
   }
 
-  if (OrbitControls) {
-    state.controls = new OrbitControls(camera, canvas2d)
-    state.controls.enableDamping = false
-    state.controls.addEventListener('change', () => paintCard(state))
-  } else {
-    bindManualControls(canvas2d, camera, () => paintCard(state))
-  }
+  state.controls = wireGeo3dControls(state)
 
   buildToolbar(wrap, state)
+  syncCanvasDimensions(state)
   cardStates.set(cardKey, state)
   activeCardKey = cardKey
 
   if (typeof ResizeObserver !== 'undefined') {
+    const $viewport = wrap.find('.menmen-geo3d-viewport')
+    const sizeEl = ($viewport.length ? $viewport : wrap)[0]
     state.ro = new ResizeObserver(() => {
-      const nw = wrap.width() || w
-      const nh = wrap.height() || h
-      if (nw !== state.width || nh !== state.height) {
-        state.width = nw
-        state.height = nh
-        canvas2d.width = nw
-        canvas2d.height = nh
-        paintCard(state)
-      }
+      const pw = state.width
+      const ph = state.height
+      syncCanvasDimensions(state)
+      if (state.width !== pw || state.height !== ph) paintCard(state)
     })
-    state.ro.observe(wrap[0])
+    state.ro.observe(sizeEl)
   }
 
   if (ir._sectionVertexCount != null) {
@@ -620,7 +693,6 @@ function setupInteractiveCard ($panel, ir, cacheKey, $container) {
   }
 
   paintCard(state)
-  $container.attr('data-geo3d-ready', '1')
 }
 
 function bindManualControls (canvas, camera, onChange) {
@@ -629,14 +701,20 @@ function bindManualControls (canvas, camera, onChange) {
   let lx = 0
   let ly = 0
   const target = new THREE.Vector3(0, 0, 0)
-  canvas.addEventListener('mousedown', (e) => {
+  const onPointerDown = (e) => {
+    if (e.pointerType === 'mouse' && e.button !== 0 && e.button !== 2) return
     down = true
     btn = e.button
     lx = e.clientX
     ly = e.clientY
-  })
-  window.addEventListener('mouseup', () => { down = false })
-  canvas.addEventListener('mousemove', (e) => {
+    try { canvas.setPointerCapture(e.pointerId) } catch (err) { /* ignore */ }
+    e.preventDefault()
+  }
+  const onPointerUp = (e) => {
+    down = false
+    try { canvas.releasePointerCapture(e.pointerId) } catch (err) { /* ignore */ }
+  }
+  const onPointerMove = (e) => {
     if (!down) return
     const dx = e.clientX - lx
     const dy = e.clientY - ly
@@ -655,12 +733,23 @@ function bindManualControls (canvas, camera, onChange) {
       const up = camera.up.clone()
       camera.position.add(right.multiplyScalar(-dx * 0.01)).add(up.multiplyScalar(dy * 0.01))
     }
+    e.preventDefault()
     onChange()
-  })
+  }
+  canvas.addEventListener('pointerdown', onPointerDown)
+  canvas.addEventListener('pointerup', onPointerUp)
+  canvas.addEventListener('pointercancel', onPointerUp)
+  canvas.addEventListener('pointermove', onPointerMove)
+  window.addEventListener('pointerup', onPointerUp)
   canvas.addEventListener('wheel', (e) => {
     e.preventDefault()
-    const dir = camera.getWorldDirection(new THREE.Vector3())
-    camera.position.add(dir.multiplyScalar(e.deltaY * 0.002))
+    e.stopPropagation()
+    const offset = camera.position.clone().sub(target)
+    const spherical = new THREE.Spherical().setFromVector3(offset)
+    const factor = Math.pow(0.995, e.deltaY)
+    spherical.radius = Math.max(0.8, Math.min(40, spherical.radius / factor))
+    camera.position.copy(target).add(new THREE.Vector3().setFromSpherical(spherical))
+    camera.lookAt(target)
     onChange()
   }, { passive: false })
   canvas.addEventListener('contextmenu', (e) => e.preventDefault())
@@ -691,17 +780,32 @@ function ensureMutationObserver () {
 }
 
 async function hydrateGeo ($c, code) {
-  try {
-    const { ir, hash, cacheKey } = await parseIr(code)
-    $c.attr('data-geo3d-hash', hash)
-    $c.find('.tab-source pre').text(code)
-    await ensureThree()
-    ensureMutationObserver()
-    setupInteractiveCard($c.find('.tab-3d'), ir, cacheKey, $c)
-    bindTabs($c)
-  } catch (e) {
-    $c.find('.tab-3d').html(`<div class="alert alert-warning">${escapeHTML(e.message)}</div>`)
-  }
+  const cardKey = $c.attr('data-geo3d-key')
+  if ($c.attr('data-geo3d-ready') === '1') return
+  if (cardKey && hydrateInflight.has(cardKey)) return hydrateInflight.get(cardKey)
+
+  const run = (async () => {
+    try {
+      $c.attr('data-geo3d-hydrating', '1')
+      const { ir, hash, cacheKey } = await parseIr(code)
+      $c.attr('data-geo3d-hash', hash)
+      $c.find('.tab-source pre').text(code)
+      await ensureThree()
+      ensureMutationObserver()
+      setupInteractiveCard($c.find('.tab-3d'), ir, cacheKey, $c)
+      bindTabs($c)
+      $c.attr('data-geo3d-ready', '1')
+    } catch (e) {
+      $c.removeAttr('data-geo3d-ready')
+      $c.find('.tab-3d').html(`<div class="alert alert-warning">${escapeHTML(e.message)}</div>`)
+    } finally {
+      $c.removeAttr('data-geo3d-hydrating')
+      if (cardKey) hydrateInflight.delete(cardKey)
+    }
+  })()
+
+  if (cardKey) hydrateInflight.set(cardKey, run)
+  return run
 }
 
 async function triggerGeoRender ($c) {
@@ -758,7 +862,7 @@ function observeHydrate ($shell, code) {
       const el = entry.target
       if (entry.isIntersecting) {
         clearTimeout(ioReleaseTimers.get(el))
-        if (!$(el).attr('data-geo3d-ready')) hydrateGeo($(el), code)
+        if (!$(el).attr('data-geo3d-ready') && !$(el).attr('data-geo3d-hydrating')) hydrateGeo($(el), code)
         else {
           const key = $(el).attr('data-geo3d-key')
           const st = cardStates.get(key)

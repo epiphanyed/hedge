@@ -58,8 +58,5 @@ export function inkToolSvg (tool, inkColor, colorSwatch) {
 }
 
 export function inkToggleSvg () {
-  return (
-    '<path d="M17.2 2.8a2.2 2.2 0 0 1 3.1 3.1L9.4 16.8 4 18l1.2-5.4L17.2 2.8z" fill="#546E7A" stroke="#37474F" stroke-width="0.65" stroke-linejoin="round"/>' +
-    '<path d="M15.6 4.4 19.6 8.4" stroke="#90A4AE" stroke-width="0.85" stroke-linecap="round"/>'
-  )
+  return ''
 }

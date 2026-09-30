@@ -3,7 +3,8 @@
   var MODES = [
     { id: 'latex', label: '数学公式' },
     { id: 'chem_eq', label: '化学方程式' },
-    { id: 'chem', label: '化学结构式' }
+    { id: 'chem', label: '化学结构式' },
+    { id: 'geo3d', label: '数学立体图形' }
   ]
   var KEY = 'menmen.ink.lastMode'
 

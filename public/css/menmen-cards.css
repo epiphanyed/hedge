@@ -59,19 +59,53 @@
   width: 100%;
   height: 280px;
   position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
+.menmen-geo3d-viewport {
+  flex: 1 1 auto;
+  position: relative;
+  min-height: 0;
+  width: 100%;
+}
+
+.menmen-geo3d-viewport canvas.menmen-geo3d-canvas,
 .menmen-card-canvas-wrap canvas {
   width: 100%;
   height: 100%;
   display: block;
+  touch-action: none;
+  cursor: grab;
+}
+
+.menmen-geo3d-viewport canvas.menmen-geo3d-canvas:active {
+  cursor: grabbing;
 }
 
 .menmen-geo3d-toolbar {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 4px;
   margin-bottom: 6px;
+  flex: 0 0 auto;
+  position: relative;
+  z-index: 2;
+}
+
+.menmen-geo3d-hint {
+  font-size: 10px;
+  margin-left: auto;
+  white-space: nowrap;
+  user-select: none;
+}
+
+@media (max-width: 480px) {
+  .menmen-geo3d-hint {
+    display: none;
+  }
 }
 
 .chem-container .tab-2d.active {
@@ -101,10 +135,7 @@ img.chem-3d-snapshot {
 
 .geo3d-label-layer {
   position: absolute;
-  left: 0;
-  top: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
   pointer-events: none;
   overflow: hidden;
 }

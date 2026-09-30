@@ -12,9 +12,13 @@
   var INK_RECO_MODES = [
     { id: 'latex', label: '数学公式' },
     { id: 'chem_eq', label: '化学方程式' },
-    { id: 'chem', label: '化学结构式' }
+    { id: 'chem', label: '化学结构式' },
+    { id: 'geo3d', label: '数学立体图形' }
   ]
   var INK_LAST_MODE_KEY = 'menmen.ink.lastMode'
+  var INK_PAD_HEIGHT_KEY = 'menmen.ink.padHeight'
+  var INK_PAD_MIN_H = 160
+  var INK_PAD_EDGE = 6
 
   var refreshTimer = null
   var observing = false
@@ -273,21 +277,78 @@
   }
 
   function bindPadScroll (ed) {
-    if (!ed || typeof ed.getScrollerElement !== 'function') return
-    var el = ed.getScrollerElement()
-    if (padScrollEl === el) return
-    unbindPadScroll()
-    padScrollEl = el
-    onPadScroll = function () {
-      if (padOpen) placePad()
-    }
-    padScrollEl.addEventListener('scroll', onPadScroll, { passive: true })
+    /* 手写板贴底固定，不再随光标/滚动 reposition */
   }
 
   function unbindPadScroll () {
-    if (padScrollEl && onPadScroll) padScrollEl.removeEventListener('scroll', onPadScroll)
     padScrollEl = null
     onPadScroll = null
+  }
+
+  function inkPadMaxHeight (areaH) {
+    return Math.max(INK_PAD_MIN_H, areaH - INK_PAD_EDGE)
+  }
+
+  function readInkPadHeight (areaH, pad) {
+    var maxH = inkPadMaxHeight(areaH)
+    if (pad && pad.dataset.userHeight) {
+      var u = parseInt(pad.dataset.userHeight, 10)
+      if (!isNaN(u) && u >= INK_PAD_MIN_H) return Math.min(u, maxH)
+    }
+    var saved = parseInt(localStorage.getItem(INK_PAD_HEIGHT_KEY), 10)
+    if (!isNaN(saved) && saved >= INK_PAD_MIN_H) return Math.min(saved, maxH)
+    return Math.min(300, Math.max(INK_PAD_MIN_H, Math.floor(areaH * 0.38)))
+  }
+
+  function padChromeHeight (pad) {
+    var panel = pad.querySelector('.menmen-ink-panel')
+    var handle = pad.querySelector('.menmen-ink-pad-resize')
+    return (handle ? handle.offsetHeight : 10) + (panel ? panel.offsetHeight : 40)
+  }
+
+  function bindPadResize (pad) {
+    var handle = pad.querySelector('.menmen-ink-pad-resize')
+    if (!handle || handle.dataset.bound === '1') return
+    handle.dataset.bound = '1'
+    handle.addEventListener('pointerdown', function (e) {
+      e.preventDefault()
+      e.stopPropagation()
+      handle.setPointerCapture(e.pointerId)
+      var startY = e.clientY
+      var startH = pad.offsetHeight
+      var area = editAreaEl()
+      var maxH = area ? inkPadMaxHeight(area.clientHeight) : startH
+
+      function move (ev) {
+        var dy = startY - ev.clientY
+        var newH = Math.min(maxH, Math.max(INK_PAD_MIN_H, startH + dy))
+        pad.style.height = newH + 'px'
+        pad.dataset.userHeight = String(newH)
+        localStorage.setItem(INK_PAD_HEIGHT_KEY, String(newH))
+        resizePadCanvas(pad)
+      }
+      function up () {
+        handle.removeEventListener('pointermove', move)
+        handle.removeEventListener('pointerup', up)
+        handle.removeEventListener('pointercancel', up)
+      }
+      handle.addEventListener('pointermove', move)
+      handle.addEventListener('pointerup', up)
+      handle.addEventListener('pointercancel', up)
+    })
+  }
+
+  function ensurePadResizeHandle (pad) {
+    if (!pad) return
+    if (!pad.querySelector('.menmen-ink-pad-resize')) {
+      var handle = document.createElement('div')
+      handle.className = 'menmen-ink-pad-resize'
+      handle.setAttribute('role', 'separator')
+      handle.setAttribute('aria-orientation', 'horizontal')
+      handle.title = '拖拽调整高度'
+      pad.insertBefore(handle, pad.firstChild)
+    }
+    bindPadResize(pad)
   }
 
   function placePad () {
@@ -295,36 +356,29 @@
     var area = editAreaEl()
     var ed = editorInstance()
     if (!pad || !area) return
+    ensurePadResizeHandle(pad)
     var areaRect = area.getBoundingClientRect()
     var areaW = area.clientWidth || areaRect.width
     var areaH = area.clientHeight || areaRect.height
-    var edge = 6
+    var edge = INK_PAD_EDGE
     var left = edge
-    var top = 48
     var width = Math.max(200, areaW - edge * 2)
-    var height = Math.min(300, Math.max(180, areaH * 0.38))
 
-    if (ed && typeof ed.cursorCoords === 'function' && ed.getWrapperElement) {
+    if (ed && ed.getWrapperElement) {
       var cm = ed.getWrapperElement()
       var cmRect = cm.getBoundingClientRect()
       var gutterW = cmGutterWidth(ed)
       left = Math.max(edge, (cmRect.left - areaRect.left) + gutterW)
       width = Math.max(200, areaW - left - edge)
-      try {
-        var cur = inkInsertCursor || ed.getCursor()
-        var coords = ed.cursorCoords(cur, 'local')
-        top = (cmRect.top - areaRect.top) + coords.bottom + 8
-        if (top + height > areaH - edge) {
-          var aboveTop = (cmRect.top - areaRect.top) + coords.top - height - 8
-          if (aboveTop >= edge) top = aboveTop
-          else height = Math.max(140, areaH - top - edge)
-        }
-      } catch (e) { /* keep defaults */ }
     }
+
+    var height = readInkPadHeight(areaH, pad)
+    pad.dataset.userHeight = String(height)
 
     pad.style.left = left + 'px'
     pad.style.right = 'auto'
-    pad.style.top = top + 'px'
+    pad.style.top = 'auto'
+    pad.style.bottom = edge + 'px'
     pad.style.width = width + 'px'
     pad.style.height = height + 'px'
     resizePadCanvas(pad)
@@ -333,12 +387,18 @@
   function resizePadCanvas (pad) {
     var canvas = pad.querySelector('canvas')
     if (!canvas) return
-    var rect = pad.getBoundingClientRect()
+    var cssW = canvas.clientWidth
+    var cssH = canvas.clientHeight
+    if (cssW < 1 || cssH < 1) {
+      var padRect = pad.getBoundingClientRect()
+      cssW = padRect.width
+      cssH = Math.max(80, padRect.height - padChromeHeight(pad))
+    }
     var dpr = window.devicePixelRatio || 1
-    canvas.width = Math.max(1, Math.floor(rect.width * dpr))
-    canvas.height = Math.max(1, Math.floor((rect.height - 40) * dpr))
-    canvas.style.width = rect.width + 'px'
-    canvas.style.height = (rect.height - 40) + 'px'
+    canvas.width = Math.max(1, Math.floor(cssW * dpr))
+    canvas.height = Math.max(1, Math.floor(cssH * dpr))
+    canvas.style.width = cssW + 'px'
+    canvas.style.height = cssH + 'px'
     redrawPad(pad)
   }
 
@@ -408,8 +468,10 @@
     fillInkRecognizeModeSelect(sel)
     sel.addEventListener('change', function () {
       localStorage.setItem(INK_LAST_MODE_KEY, sel.value)
+      applyInkHintForMode(panel, sel.value)
     })
     panel.insertBefore(sel, recognizeBtn)
+    applyInkHintForMode(panel, sel.value)
     recognizeBtn.textContent = '识别并插入'
   }
 
@@ -432,6 +494,7 @@
       if (existingSel && existingSel.options.length !== INK_RECO_MODES.length) {
         fillInkRecognizeModeSelect(existingSel)
       }
+      ensurePadResizeHandle(overlay.querySelector('.menmen-ink-pad'))
       return overlay
     }
     var savedMode = localStorage.getItem(INK_LAST_MODE_KEY) || 'latex'
@@ -443,6 +506,7 @@
     overlay.className = 'menmen-ink-overlay'
     overlay.innerHTML =
       '<div class="menmen-ink-pad">' +
+        '<div class="menmen-ink-pad-resize" role="separator" aria-orientation="horizontal" title="拖拽调整高度"></div>' +
         '<canvas></canvas>' +
         '<div class="menmen-ink-panel">' +
           '<button type="button" class="btn-undo" title="撤销 (Ctrl+Z)">撤销</button>' +
@@ -494,7 +558,9 @@
     if (modeSelect) {
       modeSelect.addEventListener('change', function () {
         localStorage.setItem(INK_LAST_MODE_KEY, modeSelect.value)
+        applyInkHintForMode(overlay.querySelector('.menmen-ink-panel'), modeSelect.value)
       })
+      applyInkHintForMode(overlay.querySelector('.menmen-ink-panel'), modeSelect.value)
     }
     overlay.querySelector('.btn-recognize-text').addEventListener('click', function () {
       recognizeAsText(overlay)
@@ -504,6 +570,7 @@
       if (e.target === overlay) closePad()
     })
     area.appendChild(overlay)
+    ensurePadResizeHandle(overlay.querySelector('.menmen-ink-pad'))
     return overlay
   }
 
@@ -749,6 +816,28 @@
     return '```chem\n' + block + '\n```'
   }
 
+  function insertGeoBlockContent (ir, hash) {
+    var body = Object.assign({}, ir)
+    if (hash) body.hw = hash
+    return '```geo3d\n' + JSON.stringify(body, null, 2) + '\n```'
+  }
+
+  function inkHintForMode (mode) {
+    if (mode === 'chem') return { ph: '补充：苯环、呋喃…', title: '结构式识别时可填物质名' }
+    if (mode === 'geo3d') return { ph: '补充：立方体、三棱锥…', title: '立体图形识别时可填形体名称' }
+    if (mode === 'chem_eq') return { ph: '补充：反应条件…', title: '化学方程式可选补充' }
+    return { ph: '补充提示（可选）', title: '识别时可填补充说明' }
+  }
+
+  function applyInkHintForMode (panel, mode) {
+    if (!panel) return
+    var hintEl = panel.querySelector('.ink-recog-hint')
+    if (!hintEl) return
+    var meta = inkHintForMode(mode)
+    hintEl.placeholder = meta.ph
+    hintEl.title = meta.title
+  }
+
   function sanitizeChemEqLatex (latex) {
     var s = normalizeLatexCore(latex)
     s = s.replace(/\\\$/g, '').replace(/\$/g, '')
@@ -767,6 +856,11 @@
       if (!smiles) return ''
       var chemName = result.name ? String(result.name).trim() : ''
       return insertChemBlockContent(smiles, chemName, opts.hash)
+    }
+    if (mode === 'geo3d' || result.mode === 'geo3d') {
+      var geoIr = result.ir
+      if (!geoIr || !geoIr.shape) return ''
+      return insertGeoBlockContent(geoIr, opts.hash)
     }
     if (result.markdown && String(result.markdown).trim()) return String(result.markdown).trim()
     var latex = result.latex
@@ -831,6 +925,9 @@
           }
           if (/no JSON|未返回可识别|empty chem/i.test(errMsg)) {
             throw new Error('未能识别出内容，请简化笔迹后重试')
+          }
+          if (/立体图形|geo3d/i.test(errMsg)) {
+            throw new Error(errMsg)
           }
           throw new Error(errMsg)
         }
@@ -916,6 +1013,7 @@
       if (!text) {
         if (mode === 'chem') throw new Error('未能识别出化学结构，请重试或改用「化学方程式」')
         if (mode === 'chem_eq') throw new Error('未能识别出化学方程式，请写清楚系数与箭头后重试')
+        if (mode === 'geo3d') throw new Error('未能识别出立体图形，请画清楚棱边后重试')
         throw new Error('没有识别到内容')
       }
       var cur = inkInsertCursor || ed.getCursor()
@@ -1006,9 +1104,36 @@
     return node.closest('.menmen-ink-toggle')
   }
 
+  /** toolbar.html 打进 index-pack 后需 rebuild；此处统一为 public/menmen-ink-toggle.png */
+  function upgradeInkToolbarIcon () {
+    var base = (typeof window.serverurl === 'string' && window.serverurl) ? window.serverurl.replace(/\/$/, '') : ''
+    var src = base + '/menmen-ink-toggle.png?v=2'
+    document.querySelectorAll('.menmen-ink-toggle').forEach(function (btn) {
+      var svg = btn.querySelector('svg.menmen-ink-icon')
+      if (svg) svg.remove()
+      var img = btn.querySelector('img.menmen-ink-icon')
+      if (!img) {
+        img = document.createElement('img')
+        img.className = 'menmen-ink-icon menmen-ink-icon-img'
+        img.alt = ''
+        img.setAttribute('aria-hidden', 'true')
+        btn.insertBefore(img, btn.firstChild)
+      }
+      img.width = 18
+      img.height = 18
+      if (img.getAttribute('src') !== src) img.src = src
+      btn.dataset.inkIconV2 = 'png2'
+    })
+  }
+
   function boot () {
     waitAndRefresh(0)
     ensureTray()
+    upgradeInkToolbarIcon()
+    if (typeof MutationObserver !== 'undefined') {
+      var iconObs = new MutationObserver(function () { upgradeInkToolbarIcon() })
+      iconObs.observe(document.body, { childList: true, subtree: true })
+    }
     document.addEventListener('click', function (e) {
       if (!findInkToggle(e.target)) return
       toggleInk(e)

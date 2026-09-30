@@ -6,6 +6,9 @@ import { inkToolSvg } from './menmen-ink-icons'
 import { noteid } from './lib/config/index'
 import getUIElements from './lib/editor/ui-elements'
 import { insertLatexHwBlock, mathInsertIsInline } from './menmen-math-delimiters'
+import { getStroke as perfectFreehandGetStroke } from 'perfect-freehand'
+import katexMod from 'katex'
+import 'katex/dist/katex.min.css'
 
 const LOGIC_W = 1200
 const LOGIC_H = 800
@@ -59,7 +62,7 @@ let docChangeHandler = null
 
 const RECOG_MODES = [
   { id: 'latex', label: '公式 LaTeX' },
-  { id: 'geo3d', label: '3D 几何' },
+  { id: 'geo3d', label: '数学立体图形' },
   { id: 'chem', label: '化学分子' },
   { id: 'cellviz', label: '细胞结构' }
 ]
@@ -102,33 +105,13 @@ function svgToolIcon (tool) {
 }
 
 function ensureModules () {
-  if (getStroke) return Promise.resolve()
-  return new Promise((resolve, reject) => {
-    require.ensure([], (requireEnsure) => {
-      try {
-        getStroke = requireEnsure('perfect-freehand').getStroke
-        resolve()
-      } catch (err) {
-        reject(err)
-      }
-    }, 'vendor-ink', reject)
-  })
+  if (!getStroke) getStroke = perfectFreehandGetStroke
+  return Promise.resolve()
 }
 
 function ensureKatex () {
-  if (katex) return Promise.resolve()
-  return new Promise((resolve, reject) => {
-    require.ensure([], (requireEnsure) => {
-      try {
-        const mod = requireEnsure('katex')
-        katex = mod.default || mod
-        requireEnsure('katex/dist/katex.min.css')
-        resolve()
-      } catch (err) {
-        reject(err)
-      }
-    }, 'vendor-math-preview', reject)
-  })
+  if (!katex) katex = katexMod.default || katexMod
+  return Promise.resolve()
 }
 
 function sessionKey () {
@@ -226,11 +209,14 @@ function scheduleLiveRedraw () {
 }
 
 function resizeCanvases (container) {
-  const rect = container.getBoundingClientRect()
-  scale = Math.min(rect.width / LOGIC_W, rect.height / LOGIC_H)
+  const pad = container.classList.contains('menmen-ink-pad') ? container : container.closest('.menmen-ink-pad')
+  const rect = pad ? pad.getBoundingClientRect() : container.getBoundingClientRect()
+  const chrome = pad ? inkPadChromeHeight(pad) : 0
+  const drawH = Math.max(1, rect.height - chrome)
+  scale = Math.min(rect.width / LOGIC_W, drawH / LOGIC_H)
   dpr = Math.min(window.devicePixelRatio || 1, 2)
   const w = Math.max(1, Math.floor(rect.width * dpr))
-  const h = Math.max(1, Math.floor(rect.height * dpr))
+  const h = Math.max(1, Math.floor(drawH * dpr))
   ;[committedCanvas, liveCanvas].forEach(c => {
     c.width = w
     c.height = h
@@ -832,37 +818,98 @@ function setActiveTool (tool, tray) {
   saveToolPref(tool, { lastUsed: Date.now() })
 }
 
+const INK_PAD_HEIGHT_KEY = 'menmen.ink.padHeight'
+const INK_PAD_MIN_H = 160
+const INK_PAD_EDGE = 6
+
+function inkPadMaxHeight (areaH) {
+  return Math.max(INK_PAD_MIN_H, areaH - INK_PAD_EDGE)
+}
+
+function readInkPadHeight (areaH, pad) {
+  const maxH = inkPadMaxHeight(areaH)
+  if (pad && pad.dataset.userHeight) {
+    const u = parseInt(pad.dataset.userHeight, 10)
+    if (!isNaN(u) && u >= INK_PAD_MIN_H) return Math.min(u, maxH)
+  }
+  const saved = parseInt(localStorage.getItem(INK_PAD_HEIGHT_KEY), 10)
+  if (!isNaN(saved) && saved >= INK_PAD_MIN_H) return Math.min(saved, maxH)
+  return Math.min(300, Math.max(INK_PAD_MIN_H, Math.floor(areaH * 0.38)))
+}
+
+function inkPadChromeHeight (pad) {
+  const panel = pad.querySelector('.menmen-ink-panel')
+  const handle = pad.querySelector('.menmen-ink-pad-resize')
+  return (handle ? handle.offsetHeight : 10) + (panel ? panel.offsetHeight : 0)
+}
+
+function bindInkPadResize (pad, editArea) {
+  const handle = pad.querySelector('.menmen-ink-pad-resize')
+  if (!handle || handle.dataset.bound === '1') return
+  handle.dataset.bound = '1'
+  handle.addEventListener('pointerdown', (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    handle.setPointerCapture(e.pointerId)
+    const startY = e.clientY
+    const startH = pad.offsetHeight
+    const maxH = editArea ? inkPadMaxHeight(editArea.clientHeight) : startH
+    const move = (ev) => {
+      const dy = startY - ev.clientY
+      const newH = Math.min(maxH, Math.max(INK_PAD_MIN_H, startH + dy))
+      pad.style.height = `${newH}px`
+      pad.dataset.userHeight = String(newH)
+      localStorage.setItem(INK_PAD_HEIGHT_KEY, String(newH))
+      resizeCanvases(pad)
+    }
+    const up = () => {
+      handle.removeEventListener('pointermove', move)
+      handle.removeEventListener('pointerup', up)
+      handle.removeEventListener('pointercancel', up)
+    }
+    handle.addEventListener('pointermove', move)
+    handle.addEventListener('pointerup', up)
+    handle.addEventListener('pointercancel', up)
+  })
+}
+
+function ensureInkPadResizeHandle (pad, editArea) {
+  if (!pad) return
+  if (!pad.querySelector('.menmen-ink-pad-resize')) {
+    const handle = document.createElement('div')
+    handle.className = 'menmen-ink-pad-resize'
+    handle.setAttribute('role', 'separator')
+    handle.setAttribute('aria-orientation', 'horizontal')
+    handle.title = '拖拽调整高度'
+    pad.insertBefore(handle, pad.firstChild)
+  }
+  bindInkPadResize(pad, editArea)
+}
+
 function positionInkPad (pad, editArea) {
   if (!pad || !editArea) return
+  ensureInkPadResizeHandle(pad, editArea)
   const areaRect = editArea.getBoundingClientRect()
   const areaW = editArea.clientWidth || areaRect.width
   const areaH = editArea.clientHeight || areaRect.height
-  const edge = 6
+  const edge = INK_PAD_EDGE
   let left = edge
-  let top = 48
   let width = Math.max(200, areaW - edge * 2)
-  let height = Math.min(300, Math.max(180, areaH * 0.38))
   const ed = typeof cm !== 'undefined' ? cm : (typeof window !== 'undefined' ? window.editor : null)
-  if (ed && typeof ed.cursorCoords === 'function' && ed.getWrapperElement) {
+  if (ed && typeof ed.getWrapperElement === 'function') {
     const cmEl = ed.getWrapperElement()
     const cmRect = cmEl.getBoundingClientRect()
     const gutters = cmEl.querySelector('.CodeMirror-gutters')
     const gutterW = gutters ? gutters.offsetWidth : 0
     left = Math.max(edge, (cmRect.left - areaRect.left) + gutterW)
     width = Math.max(200, areaW - left - edge)
-    try {
-      const coords = ed.cursorCoords(ed.getCursor(), 'local')
-      top = (cmRect.top - areaRect.top) + coords.bottom + 8
-      if (top + height > areaH - edge) {
-        const aboveTop = (cmRect.top - areaRect.top) + coords.top - height - 8
-        if (aboveTop >= edge) top = aboveTop
-        else height = Math.max(140, areaH - top - edge)
-      }
-    } catch (e) { /* ignore */ }
   }
+  const height = readInkPadHeight(areaH, pad)
+  pad.dataset.userHeight = String(height)
   pad.style.left = `${left}px`
   pad.style.right = 'auto'
-  pad.style.top = `${top}px`
+  pad.style.top = 'auto'
+  pad.style.bottom = `${edge}px`
   pad.style.width = `${width}px`
   pad.style.height = `${height}px`
 }
