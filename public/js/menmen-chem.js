@@ -2,7 +2,7 @@
 'use strict'
 
 import escapeHTML from 'escape-html'
-import { noteid } from './lib/config/index'
+import { noteid, sameOriginApi } from './lib/config/index'
 
 const VIEWER_LRU_MAX = 4
 
@@ -94,7 +94,7 @@ function bindTabs ($c, parsed) {
 async function pollChemJob (scope, hash) {
   let delay = 1000
   for (let i = 0; i < 60; i++) {
-    const res = await fetch(`${serverurl}/api/chem/jobs/${scope}/${hash}?noteId=${encodeURIComponent(noteid || '')}`, { credentials: 'same-origin' })
+    const res = await fetch(sameOriginApi(`/api/chem/jobs/${scope}/${hash}?noteId=${encodeURIComponent(noteid || '')}`), { credentials: 'same-origin' })
     const body = await res.json()
     if (body.status === 'done') return body
     if (body.status === 'error') throw new Error(body.error || 'render failed')
@@ -107,7 +107,7 @@ async function pollChemJob (scope, hash) {
 async function submitChemRender ($c, parsed) {
   $c.find('.tab-2d').html('<div class="menmen-card-loading">渲染中…</div>')
   try {
-    const res = await fetch(`${serverurl}/api/chem/render`, {
+    const res = await fetch(sameOriginApi('/api/chem/render'), {
       method: 'POST',
       credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
@@ -154,7 +154,7 @@ async function loadTexTab ($c, parsed) {
   }
   $panel.html('<div class="menmen-card-loading">生成 chemfig…</div>')
   try {
-    const res = await fetch(`${serverurl}/api/chem/chemfig`, {
+    const res = await fetch(sameOriginApi('/api/chem/chemfig'), {
       method: 'POST',
       credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
@@ -169,7 +169,7 @@ async function loadTexTab ($c, parsed) {
     let cf = body.chemfig || {}
     for (let i = 0; i < 30 && cf.status === 'running'; i++) {
       await new Promise(r => setTimeout(r, 1000))
-      const st = await fetch(`${serverurl}/api/chem/jobs/${state.scope}/${state.hash}?noteId=${encodeURIComponent(noteid || '')}`, { credentials: 'same-origin' })
+      const st = await fetch(sameOriginApi(`/api/chem/jobs/${state.scope}/${state.hash}?noteId=${encodeURIComponent(noteid || '')}`), { credentials: 'same-origin' })
       const job = await st.json()
       cf = job.chemfig || cf
     }
@@ -231,7 +231,7 @@ function load3dMolModule () {
   if (window.$3Dmol) return Promise.resolve(window.$3Dmol)
   if (load3dMolPromise) return load3dMolPromise
   load3dMolPromise = new Promise((resolve, reject) => {
-    const src = `${serverurl}/js/vendor/3Dmol-min.js`
+    const src = sameOriginApi('/js/vendor/3Dmol-min.js')
     const mark = 'data-menmen-3dmol'
     const existing = document.querySelector(`script[${mark}]`)
     if (existing) {
@@ -260,17 +260,51 @@ function load3dMolModule () {
   return load3dMolPromise
 }
 
+function chem3dHostSize (el) {
+  if (!el) return { w: 0, h: 0 }
+  const rect = el.getBoundingClientRect()
+  return {
+    w: Math.max(rect.width, el.clientWidth || 0, el.offsetWidth || 0),
+    h: Math.max(rect.height, el.clientHeight || 0, el.offsetHeight || 0)
+  }
+}
+
+function ensureChem3dHostReady (el) {
+  const { w, h } = chem3dHostSize(el)
+  if (w >= 8 && h >= 8) return Promise.resolve()
+  el.style.width = el.style.width || '100%'
+  el.style.minHeight = el.style.minHeight || '280px'
+  return new Promise((resolve) => {
+    let n = 0
+    const tick = () => {
+      const size = chem3dHostSize(el)
+      if (size.w >= 8 && size.h >= 8 || n >= 12) {
+        resolve()
+        return
+      }
+      n += 1
+      requestAnimationFrame(tick)
+    }
+    requestAnimationFrame(tick)
+  })
+}
+
+function safeChem3dRender (viewer) {
+  try {
+    viewer.resize()
+    viewer.render()
+    return true
+  } catch (e) {
+    console.warn('[menmen-chem] 3D render skipped:', e)
+    return false
+  }
+}
+
 function refresh3dViewer ($c) {
   const key = $c.attr('data-chem-key')
   const entry = viewerMap.get(key)
   if (!entry || !entry.viewer) return false
-  try {
-    entry.viewer.resize()
-    entry.viewer.render()
-    return true
-  } catch (e) {
-    return false
-  }
+  return safeChem3dRender(entry.viewer)
 }
 
 function mount3dViewer ($c, sdfUrl) {
@@ -288,24 +322,28 @@ function mount3dViewer ($c, sdfUrl) {
 
   load3dMolModule()
     .then(($3Dmol) => {
-      $panel.html('<div class="chem-3d-viewer chem-3d-active" style="height:280px;position:relative;"></div>')
+      $panel.html('<div class="chem-3d-viewer chem-3d-active" style="height:280px;position:relative;width:100%;min-height:280px;"></div>')
       const el = $panel.find('.chem-3d-viewer')[0]
-      const viewer = $3Dmol.createViewer(el, { backgroundColor: 'white' })
-      return fetch(sdfUrl, { credentials: 'same-origin' })
-        .then(r => {
-          if (!r.ok) throw new Error('SDF fetch failed')
-          return r.text()
-        })
-        .then(sdf => {
-          viewer.addModel(sdf, 'sdf')
-          viewer.setStyle({}, { stick: { radius: 0.15 }, sphere: { scale: 0.25 } })
-          viewer.zoomTo()
-          viewer.render()
-          viewerMap.set(key, { viewer, el })
-          touchViewerLru(key)
-          $c.attr('data-chem-3d-ready', '1')
-          save3dSnapshot($c, el)
-        })
+      return ensureChem3dHostReady(el).then(() => {
+        const viewer = $3Dmol.createViewer(el, { backgroundColor: 'white' })
+        return fetch(sdfUrl, { credentials: 'same-origin' })
+          .then(r => {
+            if (!r.ok) throw new Error('SDF fetch failed')
+            return r.text()
+          })
+          .then(sdf => {
+            viewer.addModel(sdf, 'sdf')
+            viewer.setStyle({}, { stick: { radius: 0.15 }, sphere: { scale: 0.25 } })
+            viewer.zoomTo()
+            if (!safeChem3dRender(viewer)) {
+              throw new Error('3D 视图初始化失败（请切换标签或刷新后重试）')
+            }
+            viewerMap.set(key, { viewer, el })
+            touchViewerLru(key)
+            $c.attr('data-chem-3d-ready', '1')
+            save3dSnapshot($c, el)
+          })
+      })
     })
     .catch(e => {
       $panel.html(`<div class="alert alert-warning">${escapeHTML(e.message || '3D 加载失败')}</div>`)

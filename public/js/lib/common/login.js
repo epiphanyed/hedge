@@ -1,6 +1,6 @@
 /* global Cookies */
 
-import { serverurl } from '../config'
+import { sameOriginApi } from '../config'
 
 let checkAuth = false
 let profile = null
@@ -65,7 +65,7 @@ export function checkIfAuth (yesCallback, noCallback) {
   const cookieLoginState = getLoginState()
   if (checkLoginStateChanged()) checkAuth = false
   if (!checkAuth || typeof cookieLoginState === 'undefined') {
-    $.get(`${serverurl}/me`)
+    $.get(sameOriginApi('/me'))
       .done(data => {
         if (data && data.status === 'ok') {
           profile = data

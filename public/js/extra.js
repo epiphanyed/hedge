@@ -440,6 +440,10 @@ export function finishView (view) {
   images.each((key, value) => {
     // if it's already wrapped by link, then ignore
     const $value = $(value)
+    const normalized = normalizeMenmenMediaUrl($value.attr('src'))
+    if (normalized && normalized !== $value.attr('src')) {
+      $value.attr('src', normalized)
+    }
     $value[0].onload = e => {
       if (window.viewAjaxCallback) window.viewAjaxCallback()
     }
@@ -571,6 +575,20 @@ export function finishView (view) {
   }
   // render title
   document.title = renderTitle(view)
+}
+
+/** 正文里存了 CMD_DOMAIN/LAN 绝对 URL 时，改为与当前页同源的 /oss/、/api/hw/ 路径以便 Cookie/ACL。 */
+function normalizeMenmenMediaUrl (src) {
+  if (!src || typeof src !== 'string') return src
+  try {
+    const parsed = new URL(src, window.location.origin)
+    if (parsed.pathname.startsWith('/oss/') || parsed.pathname.startsWith('/api/hw/')) {
+      return parsed.pathname + parsed.search
+    }
+  } catch (err) {
+    /* keep original */
+  }
+  return src
 }
 
 // only static transform should be here
