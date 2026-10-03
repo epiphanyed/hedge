@@ -207,6 +207,9 @@
     if (window.MathJax && window.MathJax.Hub) {
       window.MathJax.Hub.Queue(finish);
     }
+    if (typeof window.menmenScheduleMathTypeset === 'function') {
+      window.menmenScheduleMathTypeset();
+    }
   }
 
   function applyInitialNavigationFromUrl() {
@@ -1371,7 +1374,18 @@
       } else if (data.type === 'menmen-transition-mode-change') {
         setTransitionMode(data.mode);
       } else if (data.type === 'menmen-reader-toggle') {
-        toggleReader(!!data.active);
+        var wantPaged = !!data.active;
+        if (window.__menmenViewLayout && typeof window.__menmenViewLayout.setLayout === 'function') {
+          if (wantPaged) {
+            window.__menmenViewLayout.setLayout('paged');
+          } else if (typeof window.__menmenViewLayout.exitPagedMode === 'function') {
+            window.__menmenViewLayout.exitPagedMode();
+          } else {
+            window.__menmenViewLayout.setLayout(isMobileUa() ? 'wide' : 'centered');
+          }
+        } else {
+          toggleReader(wantPaged);
+        }
       } else if (data.type === 'menmen-hedgedoc-flip-cmd') {
         if (data.action === 'next') flipNext();
         else if (data.action === 'prev') flipPrev();
@@ -1380,7 +1394,71 @@
         if (hostDegraded) toggleReader(false);
       } else if (data.type === 'menmen-reading-depth-ack') {
         acknowledgeDepthEvent(data.eventId);
+      } else if (data.type === 'menmen-hedgedoc-soft-refresh') {
+        triggerPullRefresh();
+      } else if (data.type === 'menmen-math-typeset') {
+        if (typeof window.menmenScheduleMathTypesetWithRetries === 'function') {
+          window.menmenScheduleMathTypesetWithRetries();
+        } else if (typeof window.menmenScheduleMathTypeset === 'function') {
+          window.menmenScheduleMathTypeset();
+        }
       }
+  }
+
+  function pageScrollTop() {
+    var el = document.scrollingElement || document.documentElement || document.body;
+    return el ? el.scrollTop : 0;
+  }
+
+  function triggerPullRefresh() {
+    if (typeof window.menmenRefreshNoteView === 'function') {
+      window.menmenRefreshNoteView();
+      return;
+    }
+    if (window.ReactNativeWebView && typeof window.ReactNativeWebView.postMessage === 'function') {
+      postToHost({ type: 'menmen-hedgedoc-pull-refresh' });
+      return;
+    }
+    try {
+      window.location.reload();
+    } catch (err) { /* ignore */ }
+  }
+
+  function setupPullToRefresh() {
+    if (!('ontouchstart' in window)) return;
+    var startY = 0;
+    var tracking = false;
+    var maxPull = 0;
+    var threshold = 72;
+
+    document.addEventListener('touchstart', function (e) {
+      if (isReaderActive && totalPages > 1) return;
+      if (pageScrollTop() > 8) return;
+      if (document.body && document.body.classList.contains('menmen-img-lightbox-open')) return;
+      if (!e.touches || !e.touches.length) return;
+      startY = e.touches[0].clientY;
+      tracking = true;
+      maxPull = 0;
+    }, { passive: true });
+
+    document.addEventListener('touchmove', function (e) {
+      if (!tracking || !e.touches || !e.touches.length) return;
+      var dy = e.touches[0].clientY - startY;
+      if (dy > 0 && pageScrollTop() <= 8) {
+        maxPull = Math.max(maxPull, dy);
+      } else if (dy < -4) {
+        tracking = false;
+      }
+    }, { passive: true });
+
+    document.addEventListener('touchend', function () {
+      if (!tracking) return;
+      tracking = false;
+      if (maxPull >= threshold) {
+        triggerPullRefresh();
+      }
+      maxPull = 0;
+    }, { passive: true });
   }
 
   function bindLightboxFuseHook() {
@@ -1467,6 +1545,9 @@
     setupPrintFlatten();
 
     // MathJax 公式排版监听
+    if (typeof window.menmenScheduleMathTypeset === 'function') {
+      window.menmenScheduleMathTypeset();
+    }
     if (window.MathJax && window.MathJax.Hub) {
       window.MathJax.Hub.Queue(function () {
         if (isReaderActive) {
@@ -1635,6 +1716,7 @@
     setupHashNavigation();
     bindLightboxFuseHook();
     setupMessageBridge();
+    setupPullToRefresh();
     observeContentReflow();
     checkBatteryMode();
 

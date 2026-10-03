@@ -2722,10 +2722,21 @@ socket.on('refresh', function (data) {
         appState.currentMode = modeType.both
       }
     }
-    // parse mode from url
-    if (!menmenReadonly && window.location.search.length > 0) {
-      const urlMode = modeType[window.location.search.substr(1)]
-      if (urlMode) appState.currentMode = urlMode
+    // parse mode from url (?mode=view 或 Plato 只读嵌入)
+    try {
+      const params = new URLSearchParams(window.location.search)
+      const modeParam = params.get('mode')
+      if (modeParam && modeType[modeParam]) {
+        appState.currentMode = modeType[modeParam]
+      }
+    } catch (e) { /* ignore */ }
+    if (
+      window.ReactNativeWebView &&
+      /[?&]articleId=/.test(window.location.search) &&
+      visibleXS &&
+      !nocontent
+    ) {
+      appState.currentMode = modeType.view
     }
     changeMode(appState.currentMode)
     if (nocontent && !visibleXS) {
@@ -2748,6 +2759,9 @@ socket.on('refresh', function (data) {
       windowResizeInner()
       // work around might not scroll to hash
       scrollToHash()
+      if (typeof window.menmenScheduleMathTypesetWithRetries === 'function') {
+        window.menmenScheduleMathTypesetWithRetries()
+      }
     }, 1)
   }
   if (menmenReadonly) {
@@ -3593,6 +3607,19 @@ function refreshView () {
   updateViewInner()
 }
 
+window.menmenRefreshNoteView = function () {
+  try {
+    refreshView()
+  } catch (e) {
+    console.warn('menmen: refreshView failed', e)
+  }
+  if (typeof window.menmenScheduleMathTypesetWithRetries === 'function') {
+    window.menmenScheduleMathTypesetWithRetries()
+  } else if (typeof window.menmenScheduleMathTypeset === 'function') {
+    window.menmenScheduleMathTypeset()
+  }
+}
+
 const updateView = _.debounce(function () {
   editor.operation(updateViewInner)
 }, updateViewDebounce)
@@ -3654,6 +3681,11 @@ function updateViewInner () {
   }
   removeDOMEvents(ui.area.markdown)
   finishView(ui.area.markdown)
+  if (typeof window.menmenScheduleMathTypesetWithRetries === 'function') {
+    window.menmenScheduleMathTypesetWithRetries()
+  } else if (typeof window.menmenScheduleMathTypeset === 'function') {
+    window.menmenScheduleMathTypeset()
+  }
   autoLinkify(ui.area.markdown)
   deduplicatedHeaderId(ui.area.markdown)
   renderTOC(ui.area.markdown)

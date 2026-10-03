@@ -7,9 +7,15 @@
   var realHub = null
 
   function serverBase () {
-    if (window.config && window.config.serverURL) return window.config.serverURL
+    try {
+      if (window.location && window.location.origin && /^https?:/i.test(window.location.protocol)) {
+        return window.location.origin.replace(/\/$/, '')
+      }
+    } catch (e) { /* ignore */ }
     var base = document.querySelector('base')
-    return base ? base.href.replace(/\/$/, '') : ''
+    if (base && base.href) return base.href.replace(/\/$/, '')
+    if (window.config && window.config.serverURL) return window.config.serverURL
+    return ''
   }
 
   function isRealHub (hub) {
@@ -71,15 +77,89 @@
     }
   }
 
+  function previewRoot () {
+    return document.querySelector('.ui-view-area .markdown-body') || document.getElementById('doc')
+  }
+
+  /** 预览区是否含公式（含未包裹为 span.mathjax 的 \\[ \\]） */
+  function domHintsMath (root) {
+    root = root || previewRoot()
+    if (!root) return false
+    if (root.querySelector('span.mathjax')) return true
+    var text = root.textContent || ''
+    return (
+      /\\[\[\(]/.test(text) ||
+      /\$\$[\s\S]+?\$\$/.test(text) ||
+      /(^|[^\\])\$(?!\$)[^\$\n]+?\$/.test(text)
+    )
+  }
+
+  /** 协同/只读视图偶发未走 markdown-it-mathjax，将裸 TeX 包成 span.mathjax */
+  function wrapOrphanLatexInRoot (root) {
+    if (!root) return false
+    var changed = false
+    var blocks = root.querySelectorAll('p, li, blockquote, td, th, div')
+    blocks.forEach(function (el) {
+      if (el.closest('pre, code, textarea, .CodeMirror')) return
+      if (el.querySelector('span.mathjax, pre, code')) return
+      var html = el.innerHTML
+      if (!html || (html.indexOf('\\[') < 0 && html.indexOf('\\(') < 0)) return
+      var next = html
+      next = next.replace(/\\\[([\s\S]*?)\\\]/g, '<span class="mathjax raw">\\[$1\\]</span>')
+      next = next.replace(/\\\(([\s\S]*?)\\\)/g, '<span class="mathjax raw">\\($1\\)</span>')
+      next = next.replace(
+        /(^|[^\\])\$(?!\$)([^\$\n]+?)\$/g,
+        '$1<span class="mathjax raw">\\($2\\)</span>'
+      )
+      if (next !== html) {
+        el.innerHTML = next
+        changed = true
+      }
+    })
+    return changed
+  }
+
   function typesetPending () {
-    if (!isRealHub(realHub)) return
     var root = previewRoot()
+    wrapOrphanLatexInRoot(root)
+    if (!isRealHub(realHub)) return
     var nodes = root
       ? root.querySelectorAll('span.mathjax')
       : document.querySelectorAll('#doc span.mathjax, .ui-view-area span.mathjax')
-    if (!nodes.length) return
-    realHub.Queue(['Typeset', realHub, Array.prototype.slice.call(nodes)])
+    if (nodes.length) {
+      Array.prototype.forEach.call(nodes, function (n) {
+        n.classList.remove('raw')
+      })
+      realHub.Queue(['Typeset', realHub, Array.prototype.slice.call(nodes)])
+      return
+    }
+    if (root && domHintsMath(root)) {
+      realHub.Queue(['Typeset', realHub, root])
+    }
   }
+
+  function scheduleMathPass () {
+    var root = previewRoot()
+    wrapOrphanLatexInRoot(root)
+    if (domHintsMath(root)) {
+      window.menmenEnsureMathJax(typesetPending)
+    }
+  }
+
+  var mathRetryToken = 0
+  function scheduleMathPassWithRetries () {
+    var token = ++mathRetryToken
+    var delays = [0, 120, 350, 700, 1500, 2800]
+    delays.forEach(function (delay) {
+      setTimeout(function () {
+        if (token !== mathRetryToken) return
+        scheduleMathPass()
+      }, delay)
+    })
+  }
+
+  window.menmenScheduleMathTypeset = scheduleMathPass
+  window.menmenScheduleMathTypesetWithRetries = scheduleMathPassWithRetries
 
   function flushQueue () {
     queue.forEach(function (fn) { fn() })
@@ -96,9 +176,37 @@
     })
   }
 
+  function mathJaxBundledInPage () {
+    return !!(window.__menmenMathJaxBundled || (window.MathJax && window.MathJax.Hub && !window.MathJax.Hub.__menmenStub))
+  }
+
   window.menmenEnsureMathJax = function (cb) {
     if (loaded && isRealHub(realHub)) {
       if (cb) cb()
+      return
+    }
+    if (mathJaxBundledInPage() && !loaded) {
+      if (captureRealHub()) {
+        flushHubQueue()
+        flushQueue()
+        if (cb) cb()
+        return
+      }
+      loading = true
+      var waitBundled = 0
+      var waitTimer = setInterval(function () {
+        waitBundled++
+        if (captureRealHub()) {
+          clearInterval(waitTimer)
+          loading = false
+          flushHubQueue()
+          flushQueue()
+        } else if (waitBundled > 80) {
+          clearInterval(waitTimer)
+          loading = false
+        }
+      }, 100)
+      if (cb) queue.push(cb)
       return
     }
     if (cb) queue.push(cb)
@@ -138,24 +246,34 @@
     return !!(window.__menmenNeedsMathJax || window.__menmenCustomUI)
   }
 
-  function previewRoot () {
-    return document.querySelector('.ui-view-area .markdown-body') || document.getElementById('doc')
-  }
-
   function watchPreview () {
-    var doc = previewRoot()
-    if (!doc) return
-    var obs = new MutationObserver(function () {
-      if (doc.querySelector('span.mathjax')) {
-        window.menmenEnsureMathJax(typesetPending)
+    var attached = false
+    function attach () {
+      var doc = previewRoot()
+      if (!doc) {
+        setTimeout(attach, 150)
+        return
       }
-    })
-    obs.observe(doc, { childList: true, subtree: true })
+      if (attached) return
+      attached = true
+      var debounce = null
+      function bump () {
+        clearTimeout(debounce)
+        debounce = setTimeout(scheduleMathPass, 80)
+      }
+      var obs = new MutationObserver(function () {
+        bump()
+      })
+      obs.observe(doc, { childList: true, subtree: true, characterData: true })
+      scheduleMathPass()
+    }
+    attach()
   }
 
   document.addEventListener('DOMContentLoaded', function () {
     installHubQueue()
     watchPreview()
+    scheduleMathPassWithRetries()
     if (shouldEagerLoadMathJax()) {
       window.menmenEnsureMathJax(typesetPending)
     }
@@ -163,5 +281,34 @@
 
   if (shouldEagerLoadMathJax()) {
     window.menmenEnsureMathJax(function () {})
+  }
+
+  function setupHostMathBridge () {
+    function handleHostMathMessage (e) {
+      var data = e.data
+      if (typeof data === 'string') {
+        try {
+          data = JSON.parse(data)
+        } catch (err) {
+          return
+        }
+      }
+      if (!data || typeof data.type !== 'string') return
+      if (data.type === 'menmen-math-typeset') {
+        scheduleMathPassWithRetries()
+      }
+    }
+    window.addEventListener('message', handleHostMathMessage)
+    document.addEventListener('message', handleHostMathMessage)
+  }
+
+  setupHostMathBridge()
+
+  if (window.ReactNativeWebView) {
+    document.addEventListener('DOMContentLoaded', function () {
+      scheduleMathPassWithRetries()
+      setTimeout(scheduleMathPassWithRetries, 1200)
+      setTimeout(scheduleMathPassWithRetries, 3500)
+    })
   }
 })()

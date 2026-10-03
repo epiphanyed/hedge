@@ -899,6 +899,14 @@
   }
 
   function requestMathJaxTypeset () {
+    if (typeof window.menmenScheduleMathTypesetWithRetries === 'function') {
+      window.menmenScheduleMathTypesetWithRetries()
+      return
+    }
+    if (typeof window.menmenScheduleMathTypeset === 'function') {
+      window.menmenScheduleMathTypeset()
+      return
+    }
     if (typeof window.menmenEnsureMathJax !== 'function') return
     window.menmenEnsureMathJax(function () {
       var hub = window.MathJax && window.MathJax.Hub
@@ -906,6 +914,22 @@
       var root = document.querySelector('.ui-view-area .markdown-body') || document.getElementById('doc')
       if (root) hub.Queue(['Typeset', hub, root])
     })
+  }
+
+  function hookEditorPreviewMath () {
+    var root = document.querySelector('.ui-view-area .markdown-body')
+    if (!root) {
+      setTimeout(hookEditorPreviewMath, 200)
+      return
+    }
+    if (root.__menmenEditorMathHook) return
+    root.__menmenEditorMathHook = true
+    var debounce = null
+    new MutationObserver(function () {
+      clearTimeout(debounce)
+      debounce = setTimeout(requestMathJaxTypeset, 120)
+    }).observe(root, { childList: true, subtree: true, characterData: true })
+    requestMathJaxTypeset()
   }
 
   function pollRecognizeJob (scope, hash, onProgress) {
@@ -1168,6 +1192,13 @@
     })
   }
 
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot)
-  else boot()
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function () {
+      boot()
+      hookEditorPreviewMath()
+    })
+  } else {
+    boot()
+    hookEditorPreviewMath()
+  }
 })()

@@ -8,6 +8,7 @@ echo "==> menmen design intent verify (root: $ROOT)"
 echo "==> hedge menmen unit tests"
 cd "$ROOT/hedge"
 NODE_ENV=test CMD_DB_URL="sqlite::memory:" npx mocha --exit test/menmen/*.test.js
+node --test test/unit/menmen/minio-endpoint.js
 
 echo "==> plato vitest (full)"
 cd "$ROOT/plato"

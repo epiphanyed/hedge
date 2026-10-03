@@ -51,8 +51,40 @@
   vertical-align: middle;
 }
 
-/* 手机 UA：隐藏布局按钮（默认 wide，无需切换） */
-body.menmen-custom-ui.menmen-mobile-ua .menmen-view-layout-group {
+/* 手机 UA：保留「分页」入口，隐藏居中/wide（默认 wide，无需切换版式） */
+body.menmen-custom-ui.menmen-mobile-ua .menmen-view-layout-menu .menmen-layout-centered,
+body.menmen-custom-ui.menmen-mobile-ua .menmen-view-layout-menu .menmen-layout-wide {
+  display: none !important;
+}
+
+/* 手机 UA：固定「分页」入口（Plato WebView / 浏览器均可见） */
+body.menmen-custom-ui.menmen-mobile-ua .menmen-mobile-paged-entry {
+  position: fixed;
+  z-index: 10000;
+  right: max(12px, env(safe-area-inset-right, 0px));
+  bottom: max(80px, calc(env(safe-area-inset-bottom, 0px) + 64px));
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.2;
+  color: #1e293b;
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 999px;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.12);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  pointer-events: auto;
+}
+
+body.menmen-custom-ui.menmen-mobile-ua.ui-night .menmen-mobile-paged-entry,
+.night.menmen-custom-ui.menmen-mobile-ua .menmen-mobile-paged-entry {
+  color: #e2e8f0;
+  background: rgba(15, 23, 42, 0.9);
+  border-color: rgba(148, 163, 184, 0.35);
+}
+
+body.menmen-reader-paged .menmen-mobile-paged-entry {
   display: none !important;
 }
 

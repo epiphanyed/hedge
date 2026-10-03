@@ -150,6 +150,7 @@
     } catch (e) { /* ignore */ }
     applyLayoutClasses(layout)
     updateAllUi()
+    syncMobilePagedEntry()
   }
 
   function findNightGroups ($) {
@@ -163,6 +164,12 @@
   function pickPrimaryNightGroup ($) {
     var $groups = findNightGroups($)
     if (!$groups.length) return null
+    if (isMobileUa()) {
+      var $mobile = $groups.filter(function () {
+        return $(this).closest('.nav-mobile, .visible-xs').length > 0
+      }).first()
+      if ($mobile.length) return $mobile
+    }
     var $desktop = $groups.filter(function () {
       return $(this).closest('.nav-mobile, .visible-xs').length === 0
     }).first()
@@ -182,15 +189,41 @@
     return instances.length ? instances[0] : null
   }
 
+  function syncMobilePagedEntry () {
+    if (!isMobileUa() || !document.body) return
+    var id = 'menmen-mobile-paged-entry'
+    var existing = document.getElementById(id)
+    var inPaged = document.body.classList.contains('menmen-reader-paged') || getLayout() === 'paged'
+    if (inPaged) {
+      if (existing) existing.remove()
+      return
+    }
+    if (existing) return
+    var btn = document.createElement('button')
+    btn.type = 'button'
+    btn.id = id
+    btn.className = 'menmen-mobile-paged-entry'
+    var label = t('layoutPagedShort', t('layoutPaged', 'Paged'))
+    btn.setAttribute('aria-label', label)
+    btn.textContent = label
+    btn.addEventListener('click', function (e) {
+      e.preventDefault()
+      e.stopPropagation()
+      setLayout('paged')
+    })
+    document.body.appendChild(btn)
+  }
+
   function mountBeside ($, $nightGroup) {
     if (instances.length > 0) return
     if ($nightGroup.prev('.menmen-view-layout-group').length) return
 
     var $group = $('<div class="btn-group menmen-view-layout-group"></div>')
+    var layoutIcon = isMobileUa() ? 'fa-book' : 'fa-desktop'
     var $btn = $(
       '<button type="button" class="btn btn-default dropdown-toggle menmen-view-layout-btn" ' +
       'data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">' +
-      '<i class="fa fa-desktop"></i> <span class="caret"></span>' +
+      '<i class="fa ' + layoutIcon + '"></i> <span class="caret"></span>' +
       '</button>'
     )
     var $menu = $('<ul class="dropdown-menu menmen-view-layout-menu" role="menu"></ul>')
@@ -256,6 +289,7 @@
       return
     }
     markMobileUa()
+    syncMobilePagedEntry()
 
     var storedLayout = getLayout()
     if (storedLayout === 'paged') {
@@ -278,8 +312,13 @@
 
     mounted = true
     updateAllUi()
+    syncMobilePagedEntry()
     if (getLayout() === 'paged' || document.body.classList.contains('menmen-reader-paged')) {
       syncPagedLayoutDock(true)
+    }
+    if (typeof MutationObserver !== 'undefined' && document.body) {
+      var mo = new MutationObserver(function () { syncMobilePagedEntry() })
+      mo.observe(document.body, { attributes: true, attributeFilter: ['class'] })
     }
   }
 

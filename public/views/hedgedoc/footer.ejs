@@ -8,7 +8,14 @@
 <link rel="preload" href="<%- serverURL %>/build/fonts/HTML-CSS/TeX/woff/MathJax_Size1-Regular.woff?V=2.7.9" as="font" type="font/woff" crossorigin="anonymous">
 <% } %>
 <script nonce="<%= cspNonce %>">(function(){window.__menmenHubPending=window.__menmenHubPending||[];if(!window.MathJax)window.MathJax={};if(!window.MathJax.Hub||window.MathJax.Hub.__menmenStub){window.MathJax.Hub={__menmenStub:true,Queue:function(){window.__menmenHubPending.push([].slice.call(arguments))}};}})();</script>
-<script src="<%- serverURL %>/js/menmen-mathjax-loader.js?v=2026092731" defer></script>
+<% if (typeof menmenNeedsMathJax !== 'undefined' && menmenNeedsMathJax) { %>
+<script src="<%- serverURL %>/js/mathjax-config-extra.js"></script>
+<script src="<%- serverURL %>/build/MathJax/MathJax.js" defer></script>
+<script src="<%- serverURL %>/build/MathJax/config/TeX-AMS-MML_HTMLorMML.js" defer></script>
+<script src="<%- serverURL %>/build/MathJax/config/Safe.js" defer></script>
+<script nonce="<%= cspNonce %>">window.__menmenMathJaxBundled = true;</script>
+<% } %>
+<script src="<%- serverURL %>/js/menmen-mathjax-loader.js?v=2026100322" defer></script>
 <%- include('../build/index-pack-scripts') %>
 <% if (typeof menmenCustomUI !== 'undefined' && menmenCustomUI) {
   var menmenJsVersion = (typeof menmenAssetVersion !== 'undefined' && menmenAssetVersion) ? menmenAssetVersion : '2026092722';

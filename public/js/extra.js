@@ -565,6 +565,8 @@ export function finishView (view) {
       } else {
         queueMathJax()
       }
+    } else if (typeof window.menmenScheduleMathTypeset === 'function') {
+      window.menmenScheduleMathTypeset()
     }
   } catch (err) {
     console.warn(err)
