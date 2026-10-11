@@ -697,6 +697,58 @@
     currentAnchorElement = findFirstVisibleBlock();
   }
 
+  /** 退出分页：清掉 translate3d / 固定布局残留，否则协同预览区会空白 */
+  function resetPagedPresentation() {
+    var doc = getDocRoot();
+    if (doc) {
+      doc.style.transform = '';
+      doc.style.transition = '';
+      doc.style.removeProperty('transform');
+      doc.style.removeProperty('transition');
+      doc.style.removeProperty('column-width');
+      doc.style.removeProperty('column-gap');
+      doc.style.removeProperty('height');
+      doc.style.removeProperty('max-height');
+    }
+    var containers = document.querySelectorAll('.ui-content, .ui-view-area');
+    for (var i = 0; i < containers.length; i++) {
+      var el = containers[i];
+      el.style.removeProperty('width');
+      el.style.removeProperty('height');
+      el.style.removeProperty('max-width');
+      el.style.removeProperty('position');
+      el.style.removeProperty('inset');
+      el.style.removeProperty('overflow');
+      el.style.removeProperty('margin');
+      el.style.removeProperty('padding');
+    }
+    if (document.documentElement) {
+      document.documentElement.classList.remove('menmen-reader-paged');
+    }
+    if (document.body) {
+      document.body.classList.remove('menmen-reader-recalibrating');
+    }
+    currentPage = 0;
+    totalPages = 1;
+    currentAnchorElement = null;
+    freezeColumnsRecalculation = false;
+    try {
+      window.scrollTo(0, 0);
+    } catch (e) { /* ignore */ }
+    try {
+      if (typeof window.menmenRefreshNoteView === 'function') {
+        window.menmenRefreshNoteView();
+      } else if (typeof windowResizeInner === 'function') {
+        windowResizeInner();
+      }
+    } catch (err) { /* ignore */ }
+    if (typeof window.menmenScheduleMathTypesetWithRetries === 'function') {
+      window.menmenScheduleMathTypesetWithRetries();
+    } else if (typeof window.menmenScheduleMathTypeset === 'function') {
+      window.menmenScheduleMathTypeset();
+    }
+  }
+
   function updateHud() {
     if (!hudElement && isReaderActive) {
       hudElement = document.createElement('div');
@@ -1676,6 +1728,7 @@
           hudElement.remove();
           hudElement = null;
         }
+        resetPagedPresentation();
       }
     }
     // 广播分页状态给宿主端，驱动 ArticleFloatingDock 避让

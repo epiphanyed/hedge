@@ -55,7 +55,8 @@ module.exports = [
         }
       }
     },
-    devtool: 'source-map'
+    // 与 nginx「/build/*.map → 404」一致；勿生成 .map，避免 DevTools 报 network 404
+    devtool: false
   }),
   merge(htmlexport, {
     mode: 'production',
