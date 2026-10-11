@@ -106,6 +106,27 @@
       group.append(letter)
     }
 
+    function normalizePhotoUrl (src) {
+      if (!src || typeof src !== 'string') return src
+      var s = src.trim()
+      if (s.indexOf('/oss/') === 0) return s
+      try {
+        var parsed = new URL(s, window.location.origin)
+        var path = parsed.pathname || ''
+        if (path.indexOf('/oss/') === 0) return path + parsed.search
+        if (path.indexOf('/user-avatars/') === 0 || path.indexOf('/project/') === 0) {
+          return '/oss' + path + parsed.search
+        }
+        var host = (parsed.hostname || '').toLowerCase()
+        if (host === 'minio' || parsed.port === '9000') {
+          if (path.indexOf('/user-avatars/') === 0 || path.indexOf('/project/') === 0) {
+            return '/oss' + path + parsed.search
+          }
+        }
+      } catch (e) { /* keep */ }
+      return src
+    }
+
     function buildAvatarGroup (users) {
       var group = $('<span class="menmen-avatar-group"></span>')
       var visible = users.slice(0, MAX_VISIBLE)
@@ -113,7 +134,8 @@
       visible.forEach(function (u) {
         var label = u.name || ''
         if (u.photo) {
-          var img = $('<img>').attr('src', u.photo).attr('alt', label).attr('title', label)
+          var photoSrc = normalizePhotoUrl(u.photo)
+          var img = $('<img>').attr('src', photoSrc).attr('alt', label).attr('title', label)
           img.on('error', function () {
             appendLetterAvatar(group, u, label)
             $(this).remove()

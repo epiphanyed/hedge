@@ -222,7 +222,7 @@ describe('menmen-perm', function () {
       if (sql.includes('description_article_id') && sql.includes('sys_project WHERE')) return [{ id: 5 }]
       const p = placementOk(sql)
       if (p !== null) return p
-      if (sql.includes('sgu.role IN (0, 2)')) return [{ ok: 1 }]
+      if (sql.includes('sgu.role = 0')) return [{ ok: 1 }]
       throw new Error('unexpected: ' + sql)
     })
     menmenPerm._setPoolForTests(pool)
@@ -237,7 +237,7 @@ describe('menmen-perm', function () {
       if (sql.includes('description_article_id') && sql.includes('sys_project WHERE')) return [{ id: 5 }]
       const p = placementOk(sql)
       if (p !== null) return p
-      if (sql.includes('sgu.role IN (0, 2)')) return []
+      if (sql.includes('sgu.role = 0')) return []
       throw new Error('should not reach group write: ' + sql)
     })
     menmenPerm._setPoolForTests(pool)
