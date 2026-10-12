@@ -399,11 +399,10 @@
             savePosition(node)
           })
         })
+        $panel.addClass(PANEL_COLLAPSED)
+        syncCollapseButton($collapseBtn, true)
         try {
-          if (sessionStorage.getItem('menmen-toc-collapsed') === '1') {
-            $panel.addClass(PANEL_COLLAPSED)
-            syncCollapseButton($collapseBtn, true)
-          }
+          sessionStorage.setItem('menmen-toc-collapsed', '1')
         } catch (err) { /* ignore */ }
       }
     }

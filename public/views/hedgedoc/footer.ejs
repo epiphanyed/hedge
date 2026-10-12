@@ -21,17 +21,17 @@
   var menmenJsVersion = (typeof menmenAssetVersion !== 'undefined' && menmenAssetVersion) ? menmenAssetVersion : '2026092722';
 %>
 <script src="<%- serverURL %>/js/menmen-online.js?v=<%= menmenJsVersion %>" defer></script>
-<script src="<%- serverURL %>/js/menmen-toc.js?v=<%= menmenJsVersion %>" defer></script>
+<script src="<%- serverURL %>/js/menmen-toc.js?v=<%= menmenJsVersion %>-toc2" defer></script>
 <script src="<%- serverURL %>/js/menmen-fullscreen.js?v=<%= menmenJsVersion %>" defer></script>
-<script src="<%- serverURL %>/js/menmen-reader-flip.js?v=<%= menmenJsVersion %>" defer></script>
+<script src="<%- serverURL %>/js/menmen-reader-flip.js?v=<%= menmenJsVersion %>-lb5" defer></script>
 <script src="<%- serverURL %>/js/menmen-view-layout.js?v=<%= menmenJsVersion %>" defer></script>
-<script src="<%- serverURL %>/js/menmen-image-lightbox.browser.js?v=<%= menmenJsVersion %>-zoom1" defer></script>
+<script src="<%- serverURL %>/js/menmen-image-lightbox.browser.js?v=<%= menmenJsVersion %>-zoom8" defer></script>
 <script src="<%- serverURL %>/js/menmen-translate-draft.js?v=<%= menmenJsVersion %>" defer></script>
 <script src="<%- serverURL %>/js/menmen-ink-icons.browser.js?v=2026092724" defer></script>
 <script src="<%- serverURL %>/js/menmen-editor-fix.js?v=<%= menmenJsVersion %>-ink6" defer></script>
 <script src="<%- serverURL %>/js/menmen-ink-recog-patch.js?v=<%= menmenJsVersion %>-ink4" defer></script>
 <script nonce="<%= cspNonce %>">window.MENMEN_DRAWIO_URL = <%- JSON.stringify(typeof menmenDrawioUrl !== 'undefined' ? menmenDrawioUrl : '') %>;</script>
-<script src="<%- serverURL %>/js/menmen-drawio.js?v=<%= menmenJsVersion %>-drawio1" defer></script>
+<script src="<%- serverURL %>/js/menmen-drawio.js?v=<%= menmenJsVersion %>-drawio12" defer></script>
 <% } %>
 <% var menmenSelectionJsVersion = (typeof menmenAssetVersion !== 'undefined' && menmenAssetVersion) ? menmenAssetVersion : '2026092901'; %>
 <script src="<%- serverURL %>/js/menmen-text-selection.js?v=<%= menmenSelectionJsVersion %>" defer></script>

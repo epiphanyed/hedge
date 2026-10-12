@@ -28,6 +28,13 @@ body.menmen-readonly .menmen-drawio-hover-pill {
 
 /* 1. 工具栏按钮（紧邻 .menmen-ink-toggle 右侧，与手写图标视觉对齐） */
 .menmen-custom-ui .menmen-ink-group .menmen-drawio-toggle {
+  border: none;
+  background: transparent;
+  line-height: inherit;
+  vertical-align: middle;
+}
+
+.menmen-custom-ui .menmen-ink-group button.menmen-drawio-toggle {
   display: inline-flex !important;
   align-items: center;
   justify-content: center;
@@ -61,6 +68,17 @@ body.menmen-readonly .menmen-drawio-hover-pill {
   text-align: center;
 }
 
+.menmen-custom-ui .menmen-ink-group .menmen-drawio-toggle.menmen-drawio-toggle--readonly,
+.menmen-custom-ui .menmen-ink-group .menmen-drawio-toggle:disabled {
+  opacity: 0.45;
+  cursor: not-allowed !important;
+  pointer-events: none;
+}
+
+.markdown-body img.menmen-drawio-editable.menmen-drawio-viewonly {
+  cursor: zoom-in !important;
+}
+
 /* 当光标所在行已经是 Draw.io 图表时，工具栏图标右上角亮起蓝色提示圆点 */
 .menmen-custom-ui .menmen-ink-group .menmen-drawio-toggle.has-line-diagram::after {
   content: "";
@@ -77,9 +95,10 @@ body.menmen-readonly .menmen-drawio-hover-pill {
 /* 2. 覆盖整个编辑区域的 Draw.io 弹框 (.menmen-drawio-modal) */
 .menmen-drawio-modal {
   position: fixed;
-  z-index: 260;
+  z-index: 10060;
   display: flex;
   flex-direction: column;
+  min-height: 0;
   background: #ffffff;
   border: 1px solid #e2e8f0;
   border-radius: 6px;
@@ -255,12 +274,15 @@ body.ui-night .menmen-drawio-title {
   background: #4338ca;
 }
 
-/* 弹框画布主体与 Iframe */
+/* 弹框画布主体与 Iframe
+ * flex 子项默认 min-height:auto，百分比高度的 iframe 会塌成默认 150px，
+ * Draw.io 按矮视口布局后贴在底部，上方留下大块空白。 */
 .menmen-drawio-body {
   position: relative;
   flex: 1 1 auto;
+  min-height: 0;
   width: 100%;
-  height: calc(100% - 42px);
+  height: auto;
   background: #f8fafc;
 }
 
@@ -288,11 +310,15 @@ body.ui-night .menmen-drawio-title {
 }
 
 .menmen-drawio-iframe {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   border: 0;
   display: block;
   background: #ffffff;
+  max-width: none;
+  max-height: none;
 }
 
 /* 当用户在 ?both 模式下拖拽分栏条 (.ui-resizable-handle) 时，临时禁用 iframe 鼠标事件防止吞噬 mousemove/mouseup 导致拖拽卡死 */
@@ -304,10 +330,12 @@ body.ui-resizable-resizing .menmen-drawio-iframe {
 /* 3. 预览区可编辑 Draw.io SVG 图片样式与全局悬浮编辑/放大双动作胶囊 */
 /* 选择器权重 (0,4,2) 覆盖 menmen-custom.css#L938 的 .ui-view-area .markdown-body img[src]:not(.emoji) { cursor: zoom-in; } */
 body.menmen-custom-ui:not(.menmen-readonly) .ui-view-area .markdown-body img.menmen-drawio-editable,
-body:not(.menmen-readonly) .markdown-body img.menmen-drawio-editable {
+body:not(.menmen-readonly) .markdown-body img.menmen-drawio-editable,
+.markdown-body img[alt^="drawio" i] {
   cursor: pointer !important;
-  border-radius: 6px;
-  transition: box-shadow 0.18s ease, outline-color 0.18s ease, background-color 0.18s ease;
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 /* 夜间模式 / 暗棕羊皮纸模式 / 全屏放大灯箱 (.menmen-img-lightbox 背景为 rgba(0,0,0,0.88)) 下为透明背景深色线条的 Draw.io SVG 提供柔和浅色衬底（同时匹配 alt^="drawio" 确保首屏零闪烁），并豁免 menmen-reader-flip.js#L483 的 brightness(0.85) 压暗滤镜 */
@@ -333,16 +361,8 @@ body.menmen-reader-paged.menmen-reader-night-paper .markdown-body img[alt^="draw
   filter: none !important;
 }
 
-body:not(.menmen-readonly) .markdown-body img.menmen-drawio-editable:hover {
-  outline: 2px solid rgba(79, 70, 229, 0.45);
-  outline-offset: 3px;
-  box-shadow: 0 4px 16px rgba(79, 70, 229, 0.12);
-}
-
 .markdown-body img.menmen-drawio-editable.is-editing {
-  outline: 2px dashed #4f46e5;
-  outline-offset: 4px;
-  background-color: rgba(238, 242, 255, 0.35);
+  opacity: 0.92;
 }
 
 /* CodeMirror 内正在被编辑的 URL 高亮标记 */

@@ -8,8 +8,10 @@
 <% if (typeof menmenCustomUI !== 'undefined' && menmenCustomUI) {
   var menmenCssVersion = (typeof menmenAssetVersion !== 'undefined' && menmenAssetVersion) ? menmenAssetVersion : '2026091103';
 %>
-<link rel="stylesheet" href="<%- serverURL %>/css/menmen-custom.css?v=<%= menmenCssVersion %>-2026100319">
-<link rel="stylesheet" href="<%- serverURL %>/css/menmen-drawio.css?v=<%= menmenCssVersion %>-drawio1">
+<link rel="stylesheet" href="<%- serverURL %>/css/menmen-custom.css?v=<%= menmenCssVersion %>-2026101306">
+<link rel="stylesheet" href="<%- serverURL %>/css/menmen-drawio.css?v=<%= menmenCssVersion %>-drawio10">
+<link rel="preload" href="<%- serverURL %>/drawio/js/bootstrap.js" as="script">
+<link rel="preload" href="<%- serverURL %>/drawio/styles/grapheditor.css" as="style">
 <% } %>
 <% for (var og in opengraph) { %>
 <% if (opengraph.hasOwnProperty(og) && String(opengraph[og]).trim() !== '') { %>

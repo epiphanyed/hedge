@@ -678,6 +678,25 @@ body.menmen-has-translate-draft-banner .ui-toolbar {
   margin-left: 4px;
 }
 
+/*
+ * 手机 UA：工具栏主 btn-group 与 menmen-ink-group 分列时，手写/Draw.io 会整组换行。
+ * 将主组 display:contents 后，评论与 ink/drawio 同属 btn-toolbar 的 flex 流，可紧挨排列。
+ */
+body.menmen-custom-ui.menmen-mobile-ua .toolbar > .btn-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+body.menmen-custom-ui.menmen-mobile-ua .toolbar > .btn-toolbar > .btn-group:first-child {
+  display: contents;
+}
+
+body.menmen-custom-ui.menmen-mobile-ua .toolbar > .btn-toolbar > .menmen-ink-group {
+  flex: 0 0 auto;
+  margin-left: 0;
+}
+
 .menmen-custom-ui .menmen-ink-toggle {
   display: inline-flex !important;
   align-items: center;
@@ -885,39 +904,58 @@ body.menmen-has-translate-draft-banner .ui-toolbar {
   position: fixed;
   inset: 0;
   z-index: 10050;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
   background: rgba(0, 0, 0, 0.88);
-  cursor: zoom-out;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
 }
 
 .menmen-img-lightbox-stage {
+  position: absolute;
+  inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  max-width: 96vw;
-  max-height: 96vh;
-  overflow: auto;
+  overflow: hidden;
+  touch-action: none;
+}
+
+.menmen-img-lightbox-pan {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform-origin: center center;
+  will-change: transform;
+  cursor: grab;
 }
 
 .menmen-img-lightbox img {
-  max-width: min(96vw, 100%);
-  max-height: 96vh;
+  max-width: min(92vw, 100%);
+  max-height: 92vh;
   width: auto;
   height: auto;
+  flex-shrink: 0;
   object-fit: contain;
   box-shadow: 0 8px 40px rgba(0, 0, 0, 0.45);
-  cursor: default;
-  transform-origin: center center;
+  pointer-events: none;
+  -webkit-user-drag: none;
+  user-select: none;
+}
+
+body.menmen-reader-paged .menmen-img-lightbox img,
+.markdown-body .menmen-img-lightbox img,
+.menmen-img-lightbox img[alt^="drawio" i] {
+  margin: 0 !important;
+  max-width: min(92vw, 100%) !important;
+  max-height: 92vh !important;
 }
 
 .menmen-img-lightbox-close {
   position: absolute;
   top: 12px;
   right: 16px;
-  z-index: 1;
+  z-index: 3;
+  pointer-events: auto;
   border: none;
   background: transparent;
   color: #fff;

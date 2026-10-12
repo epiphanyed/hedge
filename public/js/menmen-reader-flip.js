@@ -364,7 +364,7 @@
       '  opacity: 0 !important;',
       '}',
       '/* 多模态多媒体（视频/Iframe/Mermaid/SVG/学术扩展）单页防撕裂与 GPU 独立合成 */',
-      'body.menmen-reader-paged iframe,',
+      'body.menmen-reader-paged iframe:not(.menmen-drawio-iframe),',
       'body.menmen-reader-paged video,',
       'body.menmen-reader-paged embed,',
       'body.menmen-reader-paged .mermaid,',
@@ -415,6 +415,13 @@
       '  object-fit: contain !important;',
       '  break-inside: avoid !important;',
       '  page-break-inside: avoid !important;',
+      '}',
+      'body.menmen-reader-paged .menmen-img-lightbox img {',
+      '  display: block !important;',
+      '  margin: 0 !important;',
+      '  max-width: min(92vw, 100%) !important;',
+      '  max-height: 92vh !important;',
+      '  object-fit: contain !important;',
       '}',
       '/* ★ 视口固定双层书脊中缝立体阴影遮罩 (永驻视口左右两侧) */',
       'body.menmen-reader-paged.menmen-reader-paper::before {',
@@ -1299,7 +1306,7 @@
     // ★ 全物理键盘与无障碍快捷键仲裁
     window.addEventListener('keydown', function onKeyDown(e) {
       if (!isReaderActive) return;
-      if (isModalOpen() || isInkOverlayOpen()) return;
+      if (isFlipCircuitBroken()) return;
       if (isInputOrEditor(e.target)) return;
 
       var code = e.code;

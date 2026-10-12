@@ -15,6 +15,17 @@
   if (window.__menmenDrawioLoaded) return;
   window.__menmenDrawioLoaded = true;
 
+  // 捕获阶段直接打开弹层：不依赖 toolbar 是否已 bind，也不被 <base href> 导航抢走
+  document.addEventListener('click', function (e) {
+    var t = e.target;
+    if (!t || !t.closest) return;
+    if (!t.closest('.menmen-drawio-toggle')) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
+    onToolbarButtonClick();
+  }, true);
+
   // =========================================================================
   // 1. 顶层立即快照初始 URL 参数 + sessionStorage 持久化 (防御 history.replaceState + F5 刷新)
   // =========================================================================
@@ -30,15 +41,23 @@
   }
 
   var rawToken = (bootParams.get('token') || storedCtx.token || '').trim().replace(/^Bearer\s+/i, '').trim();
+  var urlCanEdit = (bootParams.get('canEdit') || '').trim();
+  var urlCanSync = (bootParams.get('canSync') || '').trim();
+  var urlCanManage = (bootParams.get('canManage') || '').trim();
+  var urlUploadTicket = (bootParams.get('uploadTicket') || '').trim();
+  var urlMode = (bootParams.get('mode') || '').trim();
+  // 只读入口不得继承同 noteId 编辑会话写入的 canEdit/canSync/uploadTicket
+  var viewerWithoutWriteCreds = urlMode === 'view' && !urlUploadTicket && urlCanEdit !== '1';
   var bootContext = {
     articleId: (bootParams.get('articleId') || storedCtx.articleId || '').trim(),
     noteId: (bootParams.get('noteId') || storedCtx.noteId || initialNoteId || '').trim(),
     lang: (bootParams.get('lang') || storedCtx.lang || '').trim(),
     token: rawToken,
-    uploadTicket: (bootParams.get('uploadTicket') || storedCtx.uploadTicket || '').trim(),
-    canSync: (bootParams.get('canSync') || storedCtx.canSync || '').trim(),
+    uploadTicket: urlUploadTicket || (viewerWithoutWriteCreds ? '' : (storedCtx.uploadTicket || '')).trim(),
+    canEdit: urlCanEdit || (viewerWithoutWriteCreds ? '0' : (storedCtx.canEdit || '')).trim(),
+    canSync: urlCanSync || (viewerWithoutWriteCreds ? '0' : (storedCtx.canSync || '')).trim(),
     accessMode: (bootParams.get('accessMode') || storedCtx.accessMode || '').trim(),
-    canManage: (bootParams.get('canManage') || storedCtx.canManage || '').trim()
+    canManage: urlCanManage || (viewerWithoutWriteCreds ? '' : (storedCtx.canManage || '')).trim()
   };
 
   try {
@@ -66,7 +85,7 @@
   var iframeInitTimeoutTimer = null;
 
   var DEFAULT_PUBLIC_DRAWIO_URL =
-    'https://embed.diagrams.net/?embed=1&ui=kennedy&spin=1&modified=unsavedChanges&proto=json&configure=1&noSaveBtn=1&noExitBtn=1&saveAndExit=0&lang=zh';
+    '/drawio/?embed=1&offline=1&ui=kennedy&spin=1&modified=unsavedChanges&proto=json&configure=1&noSaveBtn=1&noExitBtn=1&saveAndExit=0&lang=zh';
 
   var state = {
     isOpen: false,
@@ -92,7 +111,9 @@
     isApplyingChange: false,
     cmChangeHandler: null,
     hoveredImgEl: null,
-    cmListenerAttached: false
+    cmListenerAttached: false,
+    drawioWindow: null,
+    drawioOrigin: '*'
   };
 
   var dom = {
@@ -191,6 +212,41 @@
     }
   }
 
+  /** 是否允许打开 Draw.io 工作台并上传 SVG（对齐 Blog uploadimage canEdit；冻结态仍可编辑，勿用 canManualHedgedocSync） */
+  function canUseDrawioEditor() {
+    if (bootContext.canEdit === '0') return false;
+    return canCurrentUserEdit();
+  }
+
+  function openDrawioImageLightbox(imgEl) {
+    if (!imgEl) return;
+    if (window.__menmenImageLightbox && typeof window.__menmenImageLightbox.open === 'function') {
+      window.__menmenImageLightbox.open(imgEl);
+    }
+  }
+
+  function syncDrawioImageViewonlyState(rootContainer) {
+    var root = rootContainer || document;
+    var allowed = canUseDrawioEditor();
+    var imgs = root.querySelectorAll('img.menmen-drawio-editable');
+    for (var i = 0; i < imgs.length; i++) {
+      imgs[i].classList.toggle('menmen-drawio-viewonly', !allowed);
+    }
+  }
+
+  function syncDrawioToolbarReadonlyState() {
+    if (!dom.toolbarBtn) return;
+    var allowed = canUseDrawioEditor();
+    dom.toolbarBtn.disabled = !allowed;
+    dom.toolbarBtn.setAttribute('aria-disabled', allowed ? 'false' : 'true');
+    dom.toolbarBtn.classList.toggle('menmen-drawio-toggle--readonly', !allowed);
+    if (!allowed) {
+      dom.toolbarBtn.title = '无编辑权限：双击预览区图表可放大查看';
+    } else {
+      updateToolbarButtonCursorHint();
+    }
+  }
+
   /** 与 ArticleSyncAuthRules.canManualSync / Plato canManualHedgedocSync 对齐 */
   function canManualHedgedocSync() {
     if (bootContext.canSync === '1') return true;
@@ -212,7 +268,10 @@
       return false;
     }
     var cm = getCodeMirror();
-    if (!cm) return false;
+    if (!cm) {
+      // 工具栏已可见时 CM 偶发尚未挂上；打开弹层不因此失败，插入时再校验
+      return true;
+    }
     if (typeof cm.getOption === 'function') {
       var ro = cm.getOption('readOnly');
       // 注意：menmen-editor-fix.js 在打开手写板时会设 readOnly = 'nocursor'，此时用户仍有编辑权
@@ -317,8 +376,20 @@
    */
   function resolveDrawioEmbedUrl(forcePublicFallback) {
     if (forcePublicFallback) return DEFAULT_PUBLIC_DRAWIO_URL;
-    if (window.MENMEN_DRAWIO_URL && String(window.MENMEN_DRAWIO_URL).trim()) {
-      return String(window.MENMEN_DRAWIO_URL).trim();
+    var configured = window.MENMEN_DRAWIO_URL && String(window.MENMEN_DRAWIO_URL).trim();
+    if (configured) {
+      if (/^https?:\/\//i.test(configured)) {
+        try {
+          var u = new URL(configured);
+          var path = (u.pathname || '/').replace(/\/+$/, '') || '/';
+          if (path === '' || path === '/' || path === '/plato' || path.indexOf('/plato/') === 0) {
+            configured = '';
+          }
+        } catch (err) {
+          configured = '';
+        }
+      }
+      if (configured) return configured;
     }
     return DEFAULT_PUBLIC_DRAWIO_URL;
   }
@@ -347,7 +418,7 @@
   // 3. 工具栏按钮挂载（紧邻手写图标 .menmen-ink-toggle 右侧）
   // =========================================================================
   function ensureDrawioToolbarButton() {
-    var toolbar = document.querySelector('.ui-edit-area .toolbar');
+    var toolbar = document.querySelector('.ui-edit-area .toolbar') || document.querySelector('.toolbar');
     if (!toolbar) return null;
 
     var existingBtn = toolbar.querySelector('.menmen-drawio-toggle');
@@ -368,9 +439,8 @@
     var inkToggle = toolbar.querySelector('.menmen-ink-toggle');
     var inkTray = toolbar.querySelector('.menmen-ink-tray');
 
-    var btn = document.createElement('a');
-    btn.href = '#';
-    btn.setAttribute('role', 'button');
+    var btn = document.createElement('button');
+    btn.type = 'button';
     btn.className = 'btn btn-sm menmen-drawio-toggle';
     btn.title = '插入 / 编辑 Draw.io 流程图 (Ctrl+Alt+D)';
     btn.setAttribute('aria-pressed', 'false');
@@ -467,6 +537,7 @@
   }
 
   function onToolbarButtonClick() {
+    if (!canUseDrawioEditor()) return;
     if (state.isOpen) {
       requestCloseModal();
       return;
@@ -474,7 +545,7 @@
     closeHandwritingIfOpen();
     var cm = getCodeMirror();
     var lineMatch = findSvgMatchOnCursorLine(cm);
-    if (lineMatch) {
+    if (lineMatch && canCurrentUserEdit()) {
       openDrawioForExistingSvg(lineMatch.url, {
         startLineHint: lineMatch.from.line,
         endLineHint: lineMatch.to.line,
@@ -576,12 +647,19 @@
     }
     state.isIframeReady = false;
     state.isBootingIframe = true;
+    state.drawioWindow = null;
+    state.drawioOrigin = '*';
     if (dom.loadingEl) dom.loadingEl.hidden = false;
     if (dom.loadingTextEl) dom.loadingTextEl.textContent = '正在加载 Draw.io 图形工作台...';
     if (dom.loadingRetryBtn) dom.loadingRetryBtn.hidden = true;
-    dom.iframe.src = resolveDrawioEmbedUrl(Boolean(usePublicFallback));
+    var embedUrl = resolveDrawioEmbedUrl(Boolean(usePublicFallback));
+    window.requestAnimationFrame(function () {
+      if (!dom.iframe || !state.isOpen) return;
+      syncModalBounds();
+      dom.iframe.src = embedUrl;
+    });
 
-    // 8 秒 init 握手超时守护：若自定义源网络不通，自动展现一键重试/切换官方源按钮
+    // 等 configure/init 握手；消息可能来自 iframe 内层窗口，不能只认 contentWindow
     iframeInitTimeoutTimer = setTimeout(function () {
       if (!state.isIframeReady && state.isOpen) {
         state.isBootingIframe = false;
@@ -592,7 +670,7 @@
           dom.loadingRetryBtn.hidden = false;
         }
       }
-    }, 8000);
+    }, 20000);
   }
 
   function getViewportMinTop() {
@@ -658,6 +736,15 @@
     dom.modal.style.left = finalLeft + 'px';
     dom.modal.style.width = finalWidth + 'px';
     dom.modal.style.height = finalHeight + 'px';
+    pingDrawioIframeResize();
+  }
+
+  function pingDrawioIframeResize() {
+    try {
+      var win = dom.iframe && dom.iframe.contentWindow;
+      if (!win) return;
+      win.dispatchEvent(new Event('resize'));
+    } catch (e) { /* 跨源回退时无法读 contentWindow，忽略 */ }
   }
 
   function toggleFullscreen() {
@@ -674,6 +761,10 @@
       if (label) label.textContent = '全屏';
       syncModalBounds();
     }
+    window.requestAnimationFrame(function () {
+      pingDrawioIframeResize();
+      window.setTimeout(pingDrawioIframeResize, 60);
+    });
   }
 
   // =========================================================================
@@ -837,7 +928,7 @@
   // 6. 打开与关闭 Draw.io 弹框（新建 / 二次编辑）
   // =========================================================================
   function openDrawioForCreate() {
-    if (!canCurrentUserEdit()) return;
+    if (!canUseDrawioEditor()) return;
     state.openSessionSeq++;
     closeHandwritingIfOpen();
     closeImageLightboxIfOpen();
@@ -873,7 +964,10 @@
   }
 
   function openDrawioForExistingSvg(svgUrl, options) {
-    if (!canCurrentUserEdit()) return;
+    if (!canUseDrawioEditor()) {
+      if (options && options.imgEl) openDrawioImageLightbox(options.imgEl);
+      return;
+    }
     var reqSeq = ++state.openSessionSeq;
     options = options || {};
     closeHandwritingIfOpen();
@@ -949,6 +1043,14 @@
     }
 
     syncModalBounds();
+    if (dom.modal) {
+      var mw = parseInt(dom.modal.style.width, 10) || 0;
+      var mh = parseInt(dom.modal.style.height, 10) || 0;
+      if (mw < 280 || mh < 220) {
+        state.isFullscreen = true;
+        dom.modal.classList.add('is-fullscreen');
+      }
+    }
 
     if (!state.isIframeReady) {
       dom.loadingEl.hidden = false;
@@ -972,10 +1074,6 @@
 
   function forceCloseModal() {
     state.openSessionSeq++;
-    if (iframeInitTimeoutTimer) {
-      clearTimeout(iframeInitTimeoutTimer);
-      iframeInitTimeoutTimer = null;
-    }
     state.isOpen = false;
     state.isExporting = false;
     state.isUploading = false;
@@ -997,9 +1095,28 @@
   // =========================================================================
   // 7. Draw.io postMessage JSON 通信协议与 xmlsvg 导出上传 (含 Sa-Token + 401 Ticket 自动续期)
   // =========================================================================
+  function isAllowedDrawioOrigin(origin) {
+    if (!origin || origin === 'null') return false;
+    if (typeof window !== 'undefined' && window.location && origin === window.location.origin) return true;
+    if (origin === 'https://embed.diagrams.net' || origin === 'https://app.diagrams.net') return true;
+    try {
+      if (dom.iframe && dom.iframe.src) {
+        if (new URL(dom.iframe.src, window.location.href).origin === origin) return true;
+      }
+    } catch (e) { /* ignore */ }
+    try {
+      var configured = window.MENMEN_DRAWIO_URL && String(window.MENMEN_DRAWIO_URL).trim();
+      if (configured) {
+        if (new URL(configured, window.location.href).origin === origin) return true;
+      }
+    } catch (e2) { /* ignore */ }
+    return false;
+  }
+
   function postToDrawio(payload) {
-    if (!dom.iframe || !dom.iframe.contentWindow) return;
-    dom.iframe.contentWindow.postMessage(JSON.stringify(payload), '*');
+    var target = state.drawioWindow || (dom.iframe && dom.iframe.contentWindow);
+    if (!target) return;
+    target.postMessage(JSON.stringify(payload), state.drawioOrigin || '*');
   }
 
   function sendLoadToDrawioIframe(xmlString) {
@@ -1031,10 +1148,7 @@
 
   // 使用捕获阶段 (true) 拦截来自 Draw.io iframe 的消息，避免触发 menmen-reader-flip.js 的跨源告警
   window.addEventListener('message', function (event) {
-    if (!dom.iframe || event.source !== dom.iframe.contentWindow) return;
-    if (typeof event.stopImmediatePropagation === 'function') {
-      event.stopImmediatePropagation();
-    }
+    if (!isAllowedDrawioOrigin(event.origin)) return;
     if (typeof event.data !== 'string' || event.data.charAt(0) !== '{') return;
 
     var msg;
@@ -1043,6 +1157,13 @@
     } catch (e) {
       return;
     }
+    if (!msg || !msg.event) return;
+
+    if (typeof event.stopImmediatePropagation === 'function') {
+      event.stopImmediatePropagation();
+    }
+    state.drawioWindow = event.source;
+    state.drawioOrigin = event.origin || '*';
 
     switch (msg.event) {
       case 'configure':
@@ -1062,16 +1183,21 @@
         state.isIframeReady = true;
         state.isBootingIframe = false;
         if (dom.loadingRetryBtn) dom.loadingRetryBtn.hidden = true;
-        if (state.pendingXmlToLoad) {
+        if (state.isOpen && state.pendingXmlToLoad) {
           sendLoadToDrawioIframe(state.pendingXmlToLoad);
+        } else if (!state.isOpen) {
+          sendLoadToDrawioIframe(EMPTY_DIAGRAM_XML);
         }
         break;
 
       case 'load':
-        dom.loadingEl.hidden = true;
-        dom.submitBtn.disabled = false;
+        if (dom.loadingEl) dom.loadingEl.hidden = true;
+        if (dom.submitBtn) dom.submitBtn.disabled = false;
         state.isDirty = false;
         if (dom.dirtyDot) dom.dirtyDot.hidden = true;
+        pingDrawioIframeResize();
+        window.setTimeout(pingDrawioIframeResize, 50);
+        window.setTimeout(pingDrawioIframeResize, 200);
         break;
 
       case 'autosave':
@@ -1226,6 +1352,14 @@
   }
 
   function handleExportedXmlSvg(svgDataUri) {
+    if (!canUseDrawioEditor()) {
+      state.isExporting = false;
+      state.isUploading = false;
+      if (dom.submitBtn) dom.submitBtn.disabled = true;
+      if (dom.submitLabel) dom.submitLabel.textContent = state.mode === 'edit' ? '更新图表' : '插入';
+      window.alert('当前无编辑权限，无法上传或更新 Draw.io 图表。');
+      return;
+    }
     var svgText;
     try {
       svgText = decodeSvgDataUriToText(svgDataUri);
@@ -1546,6 +1680,7 @@
         })(img, src);
       }
     }
+    syncDrawioImageViewonlyState(root);
   }
 
   function extractLineHintsFromImg(imgEl) {
@@ -1590,9 +1725,12 @@
       var action = btn.getAttribute('data-pill-action');
       if (action === 'zoom') {
         hideHoverPill();
-        if (window.__menmenImageLightbox && typeof window.__menmenImageLightbox.open === 'function') {
-          window.__menmenImageLightbox.open(targetImg);
-        }
+        openDrawioImageLightbox(targetImg);
+        return;
+      }
+      if (!canUseDrawioEditor()) {
+        hideHoverPill();
+        openDrawioImageLightbox(targetImg);
         return;
       }
       var hints = extractLineHintsFromImg(targetImg);
@@ -1609,20 +1747,38 @@
     return pill;
   }
 
+  function isDrawioPreviewImg(el) {
+    if (!el || el.tagName !== 'IMG') return false;
+    if (el.classList.contains('menmen-drawio-editable')) return true;
+    var alt = (el.getAttribute('alt') || '').trim().toLowerCase();
+    if (alt.indexOf('drawio') === 0) return true;
+    var src = el.getAttribute('src') || '';
+    return /\.svg(?:$|[?#])/i.test(src) && src.indexOf('resources/') !== -1;
+  }
+
   function showHoverPillForImg(imgEl) {
-    if (!canCurrentUserEdit() || state.isOpen) return;
+    if (!imgEl || state.isOpen) return;
+    if (!canUseDrawioEditor()) return;
     var pill = ensureHoverPill();
     state.hoveredImgEl = imgEl;
     pill.hidden = false;
     var rect = imgEl.getBoundingClientRect();
-    var pillWidth = pill.offsetWidth || 152;
-    var minTop = getViewportMinTop();
-    var desiredTop = Math.max(minTop + 8, Math.round(rect.top + 8));
-    if (rect.bottom > minTop + 40) {
-      desiredTop = Math.min(desiredTop, Math.round(rect.bottom - 36));
-    }
-    pill.style.top = Math.max(8, desiredTop) + 'px';
-    pill.style.left = Math.max(8, Math.round(rect.right - pillWidth - 8)) + 'px';
+    var pillWidth = Math.max(pill.offsetWidth || 168, 168);
+    var pillHeight = Math.max(pill.offsetHeight || 28, 28);
+    var view = document.querySelector('.ui-view-area') || document.querySelector('.ui-content');
+    var box = view ? view.getBoundingClientRect() : {
+      left: 8,
+      right: (window.innerWidth || 1024) - 8,
+      top: getViewportMinTop(),
+      bottom: (window.innerHeight || 800) - 8
+    };
+    var left = Math.round(rect.left + (rect.width - pillWidth) / 2);
+    left = Math.max(Math.round(box.left) + 8, Math.min(left, Math.round(box.right) - pillWidth - 8));
+    var top = Math.round(rect.top + Math.max(4, (rect.height - pillHeight) / 2));
+    if (top < box.top + 8) top = Math.round(box.top + 8);
+    if (top + pillHeight > box.bottom - 8) top = Math.round(box.bottom - pillHeight - 8);
+    pill.style.top = Math.max(8, top) + 'px';
+    pill.style.left = Math.max(8, left) + 'px';
   }
 
   function hideHoverPill() {
@@ -1638,8 +1794,9 @@
     var target = e.target;
     if (!target || target.tagName !== 'IMG') return;
     if (target.closest && target.closest('.menmen-img-lightbox, .menmen-drawio-modal')) return;
-    if (!target.classList.contains('menmen-drawio-editable')) return;
-    if (!canCurrentUserEdit()) return;
+    if (!isDrawioPreviewImg(target)) return;
+    // 无编辑权限：不拦截，交给图片灯箱弹框查看
+    if (!canUseDrawioEditor()) return;
 
     e.preventDefault();
     e.stopPropagation();
@@ -1658,11 +1815,18 @@
 
   document.addEventListener('mouseover', function (e) {
     var target = e.target;
-    if (target && target.tagName === 'IMG' && target.classList.contains('menmen-drawio-editable')) {
+    if (target && target.closest && target.closest('.menmen-drawio-hover-pill')) {
+      return;
+    }
+    if (isDrawioPreviewImg(target)) {
       showHoverPillForImg(target);
       return;
     }
-    if (target && target.closest && target.closest('.menmen-drawio-hover-pill')) {
+    var related = e.relatedTarget;
+    if (related && related.closest && (
+      related.closest('.menmen-drawio-hover-pill') ||
+      (related.tagName === 'IMG' && isDrawioPreviewImg(related))
+    )) {
       return;
     }
     if (state.hoveredImgEl) {
@@ -1673,10 +1837,8 @@
   // 支持平板/触屏设备（无 mouseover）轻点 Draw.io 图表呼出 [ ✎ 编辑图表 | 🔍 放大 ] 胶囊
   document.addEventListener('click', function (e) {
     var target = e.target;
-    if (target && target.tagName === 'IMG' && target.classList.contains('menmen-drawio-editable')) {
-      if (canCurrentUserEdit() && !state.isOpen) {
-        showHoverPillForImg(target);
-      }
+    if (isDrawioPreviewImg(target)) {
+      if (!state.isOpen) showHoverPillForImg(target);
       return;
     }
     if (target && target.closest && target.closest('.menmen-drawio-hover-pill')) {
@@ -1728,7 +1890,7 @@
   window.addEventListener('keydown', function (e) {
     var keyLower = String(e.key || '').toLowerCase();
     if (e.ctrlKey && e.altKey && keyLower === 'd') {
-      if (canCurrentUserEdit()) {
+      if (canUseDrawioEditor()) {
         e.preventDefault();
         e.stopPropagation();
         onToolbarButtonClick();
@@ -1803,11 +1965,28 @@
     if (contentArea) ro.observe(contentArea);
   }
 
+  function scheduleDrawioPreload() {
+    var start = function () {
+      if (state.isIframeReady || state.isBootingIframe) return;
+      if (!canUseDrawioEditor()) return;
+      ensureModalDOM();
+      bootDrawioIframe(false);
+    };
+    if (typeof window.requestIdleCallback === 'function') {
+      window.requestIdleCallback(start, { timeout: 2000 });
+    } else {
+      setTimeout(start, 400);
+    }
+  }
+
   function init() {
     ensureDrawioToolbarButton();
+    syncDrawioToolbarReadonlyState();
     scanPreviewForDrawioImages(document);
+    syncDrawioImageViewonlyState(document);
     tryBindCodeMirrorCursorActivity();
     tryBindLayoutResizeObserver();
+    scheduleDrawioPreload();
 
     // 过滤 CodeMirror 高频打字/光标闪烁产生的内部 DOM 变更，并以 80ms 防抖合并执行，确保对现有编辑打字性能 0 影响
     var mutationScanTimer = null;
@@ -1829,7 +2008,9 @@
       mutationScanTimer = setTimeout(function () {
         mutationScanTimer = null;
         ensureDrawioToolbarButton();
+        syncDrawioToolbarReadonlyState();
         scanPreviewForDrawioImages(document);
+        syncDrawioImageViewonlyState(document);
         tryBindCodeMirrorCursorActivity();
       }, 80);
     });
@@ -1844,8 +2025,9 @@
 
   window.__menmenDrawio = {
     isOpen: function () { return state.isOpen; },
-    canEdit: canCurrentUserEdit,
+    canEdit: canUseDrawioEditor,
     openCreate: openDrawioForCreate,
     openEdit: openDrawioForExistingSvg,
     close: requestCloseModal
   };
+})();
