@@ -10,6 +10,8 @@
     if (!img || img.tagName !== 'IMG') return false
     if (img.closest('.menmen-ink-pad, .menmen-ink-overlay, .menmen-img-lightbox')) return false
     if (img.classList.contains('emoji')) return false
+    var canEditDrawio = Boolean(window.__menmenDrawio && typeof window.__menmenDrawio.canEdit === 'function' && window.__menmenDrawio.canEdit())
+    if (img.classList.contains('menmen-drawio-editable') && canEditDrawio) return false
     var src = (img.getAttribute('src') || '').trim()
     if (!src || /^data:image\/svg/i.test(src)) return false
     var rect = img.getBoundingClientRect()
@@ -104,6 +106,8 @@
       document.dispatchEvent(new CustomEvent('menmen-lightbox-ready'))
     } catch (e) { /* IE */ }
   }
+
+  window.__menmenImageLightbox = { open: openLightbox, close: closeLightbox }
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function () {

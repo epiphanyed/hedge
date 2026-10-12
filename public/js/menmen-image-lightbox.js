@@ -10,6 +10,12 @@ function isZoomable (img) {
   if (!img || img.tagName !== 'IMG') return false
   if (img.closest('.menmen-ink-pad, .menmen-ink-overlay, .menmen-img-lightbox')) return false
   if (img.classList.contains('emoji')) return false
+  const canEditDrawio = Boolean(
+    window.__menmenDrawio &&
+    typeof window.__menmenDrawio.canEdit === 'function' &&
+    window.__menmenDrawio.canEdit()
+  )
+  if (img.classList.contains('menmen-drawio-editable') && canEditDrawio) return false
   if (img.classList.contains('chem-3d-snapshot') && img.offsetParent === null) return false
   const src = (img.getAttribute('src') || '').trim()
   if (!src) return false
@@ -103,6 +109,12 @@ export function bindPreviewImageLightbox (view) {
   if (!el || boundRoots.has(el)) return
   boundRoots.add(el)
   el.addEventListener('dblclick', onPreviewDblClick, true)
+  if (!window.__menmenImageLightbox) {
+    window.__menmenImageLightbox = {
+      open: openMenmenImageLightbox,
+      close: closeMenmenImageLightbox
+    }
+  }
 }
 
 /** 非 webpack 页面（footer 独立脚本） */

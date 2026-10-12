@@ -146,6 +146,7 @@
 
   function isFlipCircuitBroken() {
     if (isModalOpen()) return true;
+    if (document.body && document.body.classList.contains('menmen-drawio-open')) return true;
     if (isInkOverlayOpen()) return true;
     if (document.body && document.body.classList.contains('menmen-img-lightbox-open')) return true;
     if (isLongPressCandidate) return true;
@@ -155,7 +156,7 @@
   function isExcludedInteractiveElement(target) {
     if (!target) return false;
     if (isFlipCircuitBroken()) return true;
-    if (target.closest && target.closest('.menmen-ink-pad, .menmen-ink-overlay, .menmen-img-lightbox, .menmen-card-shell, .menmen-card-tab, .menmen-table-scroller, .menmen-geo3d-toolbar, .menmen-geo3d-viewport, .geo3d-container')) return true;
+    if (target.closest && target.closest('.menmen-ink-pad, .menmen-ink-overlay, .menmen-img-lightbox, .menmen-drawio-modal, .menmen-card-shell, .menmen-card-tab, .menmen-table-scroller, .menmen-geo3d-toolbar, .menmen-geo3d-viewport, .geo3d-container')) return true;
     return false;
   }
 
@@ -1484,6 +1485,7 @@
     var threshold = 72;
 
     document.addEventListener('touchstart', function (e) {
+      if (isFlipCircuitBroken()) return;
       if (isReaderActive && totalPages > 1) return;
       if (pageScrollTop() > 8) return;
       if (document.body && document.body.classList.contains('menmen-img-lightbox-open')) return;

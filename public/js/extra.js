@@ -587,6 +587,10 @@ function normalizeMenmenMediaUrl (src) {
     if (parsed.pathname.startsWith('/oss/') || parsed.pathname.startsWith('/api/hw/')) {
       return parsed.pathname + parsed.search
     }
+    const resIdx = parsed.pathname.indexOf('/resources/')
+    if (resIdx !== -1) {
+      return '/oss' + parsed.pathname.slice(resIdx) + parsed.search
+    }
   } catch (err) {
     /* keep original */
   }
@@ -670,9 +674,9 @@ function generateCleanHTML (view) {
   const src = view.clone()
   const eles = src.find('*')
   // remove syncscroll parts
-  eles.removeClass('part')
+  eles.removeClass('part menmen-drawio-editable is-editing')
   src.find('*[class=""]').removeAttr('class')
-  eles.removeAttr('data-startline data-endline')
+  eles.removeAttr('data-startline data-endline data-drawio-occ-idx data-drawio-probed data-drawio-reflow-bound')
   src.find("a[href^='#'][smoothhashscroll]").removeAttr('smoothhashscroll')
   // disable todo list
   src.find('input.task-list-item-checkbox').attr('disabled', '')

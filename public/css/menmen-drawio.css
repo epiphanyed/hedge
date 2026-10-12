@@ -1,0 +1,415 @@
+/* ==========================================================================
+   MenMen Draw.io Integration Styles (v24.0)
+   Covers: Toolbar button, Full-Edit-Area Modal, Preview Hover Pill, E-Ink & Night Mode
+   ========================================================================== */
+
+/* 0. 墨水屏模式下打开 Draw.io 弹框时临时豁免 body 灰度滤镜，恢复全彩画布与视口 fixed 包含块
+ *    选择器权重 (0,3,1) 高于 menmen-reader-flip.js#L514 运行时追加在 <head> 末尾的 #menmen-reader-flip-styles (0,2,1) */
+body.menmen-drawio-open.menmen-reader-e-ink,
+body.menmen-reader-paged.menmen-drawio-open.menmen-reader-e-ink {
+  filter: none !important;
+}
+
+/* 打开 Draw.io 期间自动隐藏高 z-index (9999~10050) 的悬浮目录、移动端分页入口、分页控制坞与翻页 HUD，防止穿透遮挡画布
+ * 注意：menmen-toc.js#L304 会对 #ui-toc-affix 执行 el.style.setProperty('display', 'block', 'important') 内联样式，
+ * 因此同步叠加 visibility: hidden / opacity: 0 / pointer-events: none 确保 100% 隐藏且不拦截鼠标事件 */
+body.menmen-drawio-open #ui-toc-affix.menmen-toc-float,
+body.menmen-drawio-open #ui-toc-affix.menmen-toc-float:has(.toc),
+body.menmen-drawio-open .menmen-mobile-paged-entry,
+body.menmen-drawio-open .menmen-paged-layout-dock,
+body.menmen-drawio-open .menmen-flip-hud,
+body.menmen-drawio-open .menmen-drawio-hover-pill,
+body.menmen-readonly .menmen-drawio-hover-pill {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+/* 1. 工具栏按钮（紧邻 .menmen-ink-toggle 右侧，与手写图标视觉对齐） */
+.menmen-custom-ui .menmen-ink-group .menmen-drawio-toggle {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  padding: 4px 6px !important;
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  position: relative;
+  color: #546e7a;
+  transition: color 0.16s ease, background-color 0.16s ease;
+}
+
+.menmen-custom-ui .menmen-ink-group .menmen-drawio-toggle:hover,
+.menmen-custom-ui .menmen-ink-group .menmen-drawio-toggle:focus {
+  background: rgba(0, 0, 0, 0.06) !important;
+  color: #3e63dd;
+}
+
+.menmen-custom-ui .menmen-ink-group .menmen-drawio-toggle.active,
+.menmen-custom-ui .menmen-ink-group .menmen-drawio-toggle[aria-pressed="true"] {
+  background: rgba(62, 99, 221, 0.15) !important;
+  color: #3e63dd !important;
+}
+
+.menmen-custom-ui .menmen-ink-group .menmen-drawio-toggle .menmen-drawio-icon {
+  font-size: 16px;
+  width: 18px;
+  height: 18px;
+  line-height: 18px;
+  text-align: center;
+}
+
+/* 当光标所在行已经是 Draw.io 图表时，工具栏图标右上角亮起蓝色提示圆点 */
+.menmen-custom-ui .menmen-ink-group .menmen-drawio-toggle.has-line-diagram::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #4f46e5;
+  box-shadow: 0 0 0 1.5px #ffffff;
+}
+
+/* 2. 覆盖整个编辑区域的 Draw.io 弹框 (.menmen-drawio-modal) */
+.menmen-drawio-modal {
+  position: fixed;
+  z-index: 260;
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.18);
+  overflow: hidden;
+}
+
+.menmen-drawio-modal[hidden] {
+  display: none !important;
+}
+
+/* 全屏模式或分页阅读模式下高于顶栏与分页 Dock (10001) */
+.menmen-drawio-modal.is-fullscreen,
+body.menmen-reader-paged .menmen-drawio-modal {
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  border-radius: 0;
+  z-index: 10060;
+}
+
+/* 分页模式下弹框已是 100vw x 100vh，隐藏冗余的全屏切换按钮 */
+body.menmen-reader-paged .menmen-drawio-modal [data-action="fullscreen"] {
+  display: none !important;
+}
+
+/* 弹框顶部控制栏 */
+.menmen-drawio-header {
+  height: 42px;
+  min-height: 42px;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+  border-bottom: 1px solid #e2e8f0;
+  user-select: none;
+  gap: 8px;
+}
+
+.night .menmen-drawio-header,
+body.ui-night .menmen-drawio-header {
+  background: #1e293b;
+  border-bottom-color: #334155;
+}
+
+.menmen-drawio-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.menmen-drawio-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: #eef2ff;
+  color: #4338ca;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.menmen-drawio-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1e293b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.night .menmen-drawio-title,
+body.ui-night .menmen-drawio-title {
+  color: #f1f5f9;
+}
+
+.menmen-drawio-dirty-dot {
+  font-size: 12px;
+  color: #d97706;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.menmen-drawio-conflict-banner {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: #fef3c7;
+  border: 1px solid #f59e0b;
+  color: #b45309;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.menmen-drawio-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.menmen-drawio-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 12px;
+  border-radius: 5px;
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: 1px solid transparent;
+}
+
+.menmen-drawio-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.menmen-drawio-btn-ghost {
+  background: transparent;
+  border-color: #cbd5e1;
+  color: #475569;
+}
+
+.menmen-drawio-btn-ghost:hover:not(:disabled) {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.menmen-drawio-btn-cancel {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  color: #334155;
+}
+
+.menmen-drawio-btn-cancel:hover:not(:disabled) {
+  background: #f8fafc;
+  border-color: #94a3b8;
+}
+
+.menmen-drawio-btn-secondary {
+  background: #fffbeb;
+  border-color: #f59e0b;
+  color: #b45309;
+}
+
+.menmen-drawio-btn-secondary:hover:not(:disabled) {
+  background: #fef3c7;
+}
+
+.menmen-drawio-btn-primary {
+  background: #4f46e5;
+  border-color: #4338ca;
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(79, 70, 229, 0.25);
+}
+
+.menmen-drawio-btn-primary:hover:not(:disabled) {
+  background: #4338ca;
+}
+
+/* 弹框画布主体与 Iframe */
+.menmen-drawio-body {
+  position: relative;
+  flex: 1 1 auto;
+  width: 100%;
+  height: calc(100% - 42px);
+  background: #f8fafc;
+}
+
+.menmen-drawio-loading {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: rgba(248, 250, 252, 0.92);
+  color: #475569;
+  font-size: 13px;
+}
+
+.menmen-drawio-loading[hidden] {
+  display: none !important;
+}
+
+.menmen-drawio-loading .fa {
+  font-size: 24px;
+  color: #4f46e5;
+}
+
+.menmen-drawio-iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+  background: #ffffff;
+}
+
+/* 当用户在 ?both 模式下拖拽分栏条 (.ui-resizable-handle) 时，临时禁用 iframe 鼠标事件防止吞噬 mousemove/mouseup 导致拖拽卡死 */
+.ui-edit-area.ui-resizable-resizing ~ .menmen-drawio-modal .menmen-drawio-iframe,
+body.ui-resizable-resizing .menmen-drawio-iframe {
+  pointer-events: none !important;
+}
+
+/* 3. 预览区可编辑 Draw.io SVG 图片样式与全局悬浮编辑/放大双动作胶囊 */
+/* 选择器权重 (0,4,2) 覆盖 menmen-custom.css#L938 的 .ui-view-area .markdown-body img[src]:not(.emoji) { cursor: zoom-in; } */
+body.menmen-custom-ui:not(.menmen-readonly) .ui-view-area .markdown-body img.menmen-drawio-editable,
+body:not(.menmen-readonly) .markdown-body img.menmen-drawio-editable {
+  cursor: pointer !important;
+  border-radius: 6px;
+  transition: box-shadow 0.18s ease, outline-color 0.18s ease, background-color 0.18s ease;
+}
+
+/* 夜间模式 / 暗棕羊皮纸模式 / 全屏放大灯箱 (.menmen-img-lightbox 背景为 rgba(0,0,0,0.88)) 下为透明背景深色线条的 Draw.io SVG 提供柔和浅色衬底（同时匹配 alt^="drawio" 确保首屏零闪烁），并豁免 menmen-reader-flip.js#L483 的 brightness(0.85) 压暗滤镜 */
+.menmen-img-lightbox img[src*=".svg" i],
+.menmen-img-lightbox img[alt^="drawio" i],
+body.menmen-reader-paged.ui-night .menmen-img-lightbox img[src*=".svg" i],
+body.menmen-reader-paged.ui-night .menmen-img-lightbox img[alt^="drawio" i],
+body.menmen-reader-paged.menmen-reader-night-paper .menmen-img-lightbox img[src*=".svg" i],
+body.menmen-reader-paged.menmen-reader-night-paper .menmen-img-lightbox img[alt^="drawio" i],
+.night .markdown-body img.menmen-drawio-editable,
+.night .markdown-body img[alt^="drawio" i],
+body.ui-night .markdown-body img.menmen-drawio-editable,
+body.ui-night .markdown-body img[alt^="drawio" i],
+body.menmen-reader-night-paper .markdown-body img.menmen-drawio-editable,
+body.menmen-reader-night-paper .markdown-body img[alt^="drawio" i],
+body.menmen-reader-paged.ui-night .markdown-body img.menmen-drawio-editable,
+body.menmen-reader-paged.ui-night .markdown-body img[alt^="drawio" i],
+body.menmen-reader-paged.menmen-reader-night-paper .markdown-body img.menmen-drawio-editable,
+body.menmen-reader-paged.menmen-reader-night-paper .markdown-body img[alt^="drawio" i] {
+  background-color: rgba(248, 250, 252, 0.94);
+  padding: 8px;
+  border-radius: 6px;
+  filter: none !important;
+}
+
+body:not(.menmen-readonly) .markdown-body img.menmen-drawio-editable:hover {
+  outline: 2px solid rgba(79, 70, 229, 0.45);
+  outline-offset: 3px;
+  box-shadow: 0 4px 16px rgba(79, 70, 229, 0.12);
+}
+
+.markdown-body img.menmen-drawio-editable.is-editing {
+  outline: 2px dashed #4f46e5;
+  outline-offset: 4px;
+  background-color: rgba(238, 242, 255, 0.35);
+}
+
+/* CodeMirror 内正在被编辑的 URL 高亮标记 */
+.CodeMirror .menmen-drawio-cm-editing {
+  background-color: rgba(79, 70, 229, 0.14);
+  border-bottom: 1px dashed #4f46e5;
+}
+
+/* 全局悬浮「[ ✎ 编辑图表 | 🔍 放大 ]」双动作胶囊（挂载于 document.body，不污染 #doc） */
+.menmen-drawio-hover-pill {
+  position: fixed;
+  z-index: 10020;
+  display: inline-flex;
+  align-items: center;
+  height: 28px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.86);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.24);
+  user-select: none;
+}
+
+.menmen-drawio-hover-pill[hidden] {
+  display: none !important;
+}
+
+.menmen-drawio-pill-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.12s ease;
+}
+
+.menmen-drawio-pill-btn:hover {
+  background: #4f46e5;
+}
+
+.menmen-drawio-pill-divider {
+  width: 1px;
+  height: 14px;
+  background: rgba(255, 255, 255, 0.24);
+  margin: 0 2px;
+}
+
+/* 4. 浏览器打印 / 导出 PDF 时彻底隐藏弹框、悬浮胶囊与编辑态虚线框 */
+@media print {
+  .menmen-drawio-modal,
+  .menmen-drawio-hover-pill {
+    display: none !important;
+  }
+  .markdown-body img.menmen-drawio-editable,
+  .markdown-body img.menmen-drawio-editable.is-editing {
+    outline: none !important;
+    box-shadow: none !important;
+  }
