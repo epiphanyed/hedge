@@ -56,6 +56,22 @@ describe('menmen-presence', function () {
     assert.ok(src.includes('socket.noteId || menmenPresence.findNoteIdBySocketId'))
   })
 
+  it('index.js filters online users list consistently', function () {
+    const src = fs.readFileSync(path.join(__dirname, '../../public/js/index.js'), 'utf8')
+    assert.ok(src.includes("socket.on('online users'"))
+    assert.ok(src.includes('onlineUsers = filterMenmenOnlineUsers(data.users)'))
+  })
+
+  it('embed leave stops socket reconnect loop', function () {
+    const indexJs = fs.readFileSync(path.join(__dirname, '../../public/js/index.js'), 'utf8')
+    const onlineJs = fs.readFileSync(path.join(__dirname, '../../public/js/menmen-online.js'), 'utf8')
+    const flipJs = fs.readFileSync(path.join(__dirname, '../../public/js/menmen-reader-flip.js'), 'utf8')
+    assert.ok(indexJs.includes('menmenLeaveCollaboration'))
+    assert.ok(indexJs.includes('__menmenSkipSocketReconnect'))
+    assert.ok(onlineJs.includes('menmenLeaveCollaboration'))
+    assert.ok(flipJs.includes('menmen-host-park'))
+  })
+
   it('socket.io heartbeat is passed to constructor not io.set', function () {
     const src = fs.readFileSync(path.join(__dirname, '../../app.js'), 'utf8')
     assert.ok(src.includes('pingInterval: config.heartbeatInterval'))

@@ -21,7 +21,8 @@ html.menmen-can-edit:not(.menmen-readonly) .ui-mode-group { display: inline-bloc
 body.menmen-custom-ui.menmen-can-edit:not(.menmen-readonly) .ui-mode,
 html.menmen-can-edit:not(.menmen-readonly) .ui-mode { display: inline-block !important; }
 </style>
-<link rel="preload" href="<%- serverURL %>/drawio/js/bootstrap.js" as="script">
+<!-- 同源 drawio-web 为 app.min.js 入口，无 js/bootstrap.js（预加载错误 URL 会 404） -->
+<link rel="preload" href="<%- serverURL %>/drawio/js/app.min.js" as="script">
 <link rel="preload" href="<%- serverURL %>/drawio/styles/grapheditor.css" as="style">
 <% } %>
 <% for (var og in opengraph) { %>

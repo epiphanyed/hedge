@@ -43,11 +43,12 @@ describe('menmen-readonly-boot', function () {
     assert.ok(src.includes('menmenCanEdit: queryAllowsMenmenEdit(req.query)'))
   })
 
-  it('hedgedoc.ejs defaults to readonly unless canEdit=1, before header paint', function () {
+  it('hedgedoc.ejs inline boot: canEdit=1/0 only; missing param keeps SSR', function () {
     const src = fs.readFileSync(path.join(__dirname, '../../public/views/hedgedoc.ejs'), 'utf8')
     assert.ok(src.includes("menmenBodyClass.push('menmen-can-edit')"))
     assert.ok(src.includes("menmenBodyClass.push('menmen-readonly')"))
     assert.ok(src.includes("v==='1'"))
+    assert.ok(src.includes("v==='0'"))
     const headerIdx = src.indexOf("include('hedgedoc/header')")
     const bootIdx = src.indexOf("v==='1'")
     assert.ok(bootIdx >= 0 && bootIdx < headerIdx)
@@ -62,10 +63,12 @@ describe('menmen-readonly-boot', function () {
     assert.ok(css.includes('menmen-can-edit:not(.menmen-readonly) .ui-mode-group'))
   })
 
-  it('index.js fail-closed boots readonly unless canEdit=1', function () {
+  it('index.js honors host canEdit grant and preserves menmen query on mode change', function () {
     const src = fs.readFileSync(path.join(__dirname, '../../public/js/index.js'), 'utf8')
     assert.ok(src.includes('function urlAllowsMenmenEdit'))
-    assert.ok(src.includes('let menmenReadonly = !urlAllowsMenmenEdit()'))
+    assert.ok(src.includes('menmenHostEditGranted'))
+    assert.ok(src.includes('function buildNoteHistoryUrl'))
+    assert.ok(src.includes('if (menmenHostEditGranted) return'))
     assert.ok(src.includes("applyMenmenClass('menmen-can-edit'"))
   })
 })

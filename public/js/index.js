@@ -988,6 +988,26 @@ function urlAllowsMenmenEdit () {
   }
 }
 
+function buildNoteHistoryUrl (modeName) {
+  var path = serverurl + '/' + noteid
+  try {
+    var trimmed = (window.location.search || '').replace(/^\?/, '')
+    var segments = trimmed ? trimmed.split('&').filter(Boolean) : []
+    var modeKeys = { edit: true, view: true, both: true }
+    var kept = []
+    for (var i = 0; i < segments.length; i++) {
+      var seg = segments[i]
+      var key = seg.split('=')[0]
+      if (modeKeys[key]) continue
+      kept.push(seg)
+    }
+    kept.push(modeName)
+    return path + '?' + kept.join('&')
+  } catch (e) {
+    return path + '?' + modeName
+  }
+}
+
 function applyMenmenClass (name, on) {
   if (typeof document === 'undefined') return
   const method = on ? 'add' : 'remove'
@@ -1007,11 +1027,24 @@ function applyMenmenCanEditClass (on) {
   if (on) applyMenmenClass('menmen-readonly', false)
 }
 
-let menmenReadonly = !urlAllowsMenmenEdit()
-if (menmenReadonly) {
-  applyMenmenReadonlyClass(true)
-} else {
+function menmenBootHasCanEditClass () {
+  try {
+    if (document.documentElement.classList.contains('menmen-can-edit')) return true
+    return !!(document.body && document.body.classList.contains('menmen-can-edit'))
+  } catch (e) {
+    return false
+  }
+}
+
+/** Plato/Blog 在首屏 URL 或 SSR 已声明 canEdit=1 时，不因 socket 权限竞态或 ?edit 丢参而锁死只读 */
+const menmenHostEditGranted = urlAllowsMenmenEdit() || menmenBootHasCanEditClass()
+
+let menmenReadonly = false
+if (menmenHostEditGranted) {
   applyMenmenCanEditClass(true)
+} else {
+  menmenReadonly = true
+  applyMenmenReadonlyClass(true)
 }
 
 function applyMenmenReadonly () {
@@ -1200,13 +1233,9 @@ function changeMode (type) {
       ui.area.view.show()
       break
   }
-  // save mode to url
+  // save mode to url（保留 canEdit/articleId/token 等 Menmen 参数，避免 replaceState 后刷新或误判只读）
   if (history.replaceState && window.loaded) {
-    history.replaceState(
-      null,
-      '',
-      serverurl + '/' + noteid + '?' + appState.currentMode.name
-    )
+    history.replaceState(null, '', buildNoteHistoryUrl(appState.currentMode.name))
   }
   if (appState.currentMode === modeType.view) {
     editor.getInputField().blur()
@@ -2386,10 +2415,37 @@ socket.on('delete', function () {
   }
 })
 let retryTimer = null
+
+/** Plato 宿主挂起 iframe / pagehide：断开协同且勿再自动 socket.connect */
+function menmenLeaveCollaboration () {
+  window.__menmenSkipSocketReconnect = true
+  if (retryTimer) {
+    clearInterval(retryTimer)
+    retryTimer = null
+  }
+  try {
+    if (socket.io && typeof socket.io.reconnect === 'function') {
+      socket.io.reconnect(false)
+    }
+  } catch (e) { /* ignore */ }
+  try {
+    socket.disconnect()
+  } catch (e2) { /* ignore */ }
+}
+window.menmenLeaveCollaboration = menmenLeaveCollaboration
+
 socket.on('maintenance', function () {
   cmClient.revision = -1
 })
 socket.on('disconnect', function (data) {
+  if (window.__menmenSkipSocketReconnect) {
+    if (retryTimer) {
+      clearInterval(retryTimer)
+      retryTimer = null
+    }
+    showStatus(statusType.offline)
+    return
+  }
   showStatus(statusType.offline)
   if (window.loaded) {
     saveInfo()
@@ -2418,6 +2474,7 @@ socket.on('connect', function (data) {
   socket.emit('version')
 })
 socket.on('menmen-permission-denied', function (data) {
+  if (menmenHostEditGranted) return
   if (data && data.canRead === false) {
     applyMenmenReadonly()
     if (typeof showWarningModal === 'function') {
@@ -2886,8 +2943,8 @@ socket.on('online users', function (data) {
   if (debug) {
     console.debug(data)
   }
-  onlineUsers = data.users
-  window.__menmenOnlineUsers = data.users
+  onlineUsers = filterMenmenOnlineUsers(data.users)
+  window.__menmenOnlineUsers = onlineUsers
   updateOnlineStatus()
   $('.CodeMirror-other-cursors')
     .children()

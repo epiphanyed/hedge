@@ -1449,6 +1449,10 @@
       } else if (data.type === 'menmen-hedgedoc-flip-cmd') {
         if (data.action === 'next') flipNext();
         else if (data.action === 'prev') flipPrev();
+      } else if (data.type === 'menmen-host-park') {
+        if (typeof window.menmenLeaveCollaboration === 'function') {
+          window.menmenLeaveCollaboration();
+        }
       } else if (data.type === 'menmen-host-degraded') {
         hostDegraded = !!data.active;
         if (hostDegraded) toggleReader(false);

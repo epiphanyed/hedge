@@ -218,7 +218,11 @@
       if (!s.__menmenUnloadBound) {
         s.__menmenUnloadBound = true
         function drop () {
-          try { s.disconnect() } catch (e) { /* ignore */ }
+          if (typeof window.menmenLeaveCollaboration === 'function') {
+            window.menmenLeaveCollaboration()
+          } else {
+            try { s.disconnect() } catch (e) { /* ignore */ }
+          }
         }
         window.addEventListener('pagehide', drop)
         window.addEventListener('beforeunload', drop)
