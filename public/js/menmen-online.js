@@ -42,16 +42,17 @@
       return out
     }
 
+    /** 停在这篇文档里的都显示（编辑权 / 查看权）；已断开的不显示 */
     function shouldShowUser (u) {
-      if (!u || !u.name) return false
-      if (!u.idle) return true
-      return !!u.login
+      return !!(u && u.name)
     }
 
     function collectUsersFromDom () {
       var users = []
       var seen = {}
       $('#online-user-list .ui-user-item, #short-online-user-list .ui-user-item').each(function () {
+        var status = $(this).find('.ui-user-status')
+        if (status.hasClass('ui-user-status-offline')) return
         var name = $(this).find('.ui-user-name, .name').first().text().trim()
         if (!name || seen[name]) return
         seen[name] = true
@@ -63,6 +64,7 @@
           if (m) photo = m[1]
         }
         users.push({
+          id: $(this).find('.id').first().text().trim(),
           name: name,
           photo: photo,
           color: icon.css('background-color'),
@@ -77,6 +79,7 @@
       if (!raw || !raw.length) return []
       return dedupeUsers(raw).map(function (u) {
         return {
+          id: u.id || '',
           name: u.name || '',
           photo: u.photo || null,
           color: u.color || null,
@@ -87,9 +90,26 @@
     }
 
     function getUsers () {
-      var fromSocket = normalizeUsers(window.__menmenOnlineUsers)
-      if (fromSocket.length) return fromSocket
+      if (Array.isArray(window.__menmenOnlineUsers)) {
+        return normalizeUsers(window.__menmenOnlineUsers)
+      }
       return collectUsersFromDom()
+    }
+
+    function syncDropdown (users) {
+      if (!Array.isArray(window.__menmenOnlineUsers)) return
+      var ids = {}
+      var names = {}
+      for (var i = 0; i < users.length; i++) {
+        if (users[i].id) ids[users[i].id] = true
+        if (users[i].name) names[users[i].name] = true
+      }
+      $('#online-user-list .ui-user-item, #short-online-user-list .ui-user-item').each(function () {
+        var id = $(this).find('.id').first().text().trim()
+        var name = $(this).find('.ui-user-name, .name').first().text().trim()
+        var show = (id && ids[id]) || (name && names[name])
+        $(this).toggle(!!show)
+      })
     }
 
     function usersSignature (users) {
@@ -173,6 +193,7 @@
     function refreshAvatars () {
       if (refreshing) return
       var users = getUsers()
+      syncDropdown(users)
       var sig = usersSignature(users)
       if (sig === lastSignature && $('.menmen-avatar-group').length) return
       refreshing = true
@@ -194,6 +215,14 @@
       s.on('connect', function () {
         scheduleRefresh()
       })
+      if (!s.__menmenUnloadBound) {
+        s.__menmenUnloadBound = true
+        function drop () {
+          try { s.disconnect() } catch (e) { /* ignore */ }
+        }
+        window.addEventListener('pagehide', drop)
+        window.addEventListener('beforeunload', drop)
+      }
       s.on('online users', function (data) {
         window.__menmenOnlineUsers = (data && data.users) ? data.users : []
         try {

@@ -81,7 +81,11 @@ if (config.enableStatsApi) {
 }
 
 // socket io
-const io = require('socket.io')(server, { cookie: false })
+const io = require('socket.io')(server, {
+  cookie: false,
+  pingInterval: config.heartbeatInterval,
+  pingTimeout: config.heartbeatTimeout
+})
 
 // others
 const realtime = require('./lib/realtime.js')
@@ -283,9 +287,7 @@ io.use(passportSocketIo.authorize({
   success: realtime.onAuthorizeSuccess,
   fail: realtime.onAuthorizeFail
 }))
-// socket.io heartbeat
-io.set('heartbeat interval', config.heartbeatInterval)
-io.set('heartbeat timeout', config.heartbeatTimeout)
+// socket.io heartbeat（1.x io.set 在 2.x 无效；已在构造时传入 pingInterval/pingTimeout）
 // socket.io connection
 io.sockets.on('connection', realtime.connection)
 

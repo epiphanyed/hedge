@@ -980,11 +980,43 @@ function checkTocStyle () {
   }
 }
 
-let menmenReadonly = false
+function urlAllowsMenmenEdit () {
+  try {
+    return new URLSearchParams(window.location.search).get('canEdit') === '1'
+  } catch (e) {
+    return false
+  }
+}
+
+function applyMenmenClass (name, on) {
+  if (typeof document === 'undefined') return
+  const method = on ? 'add' : 'remove'
+  document.documentElement.classList[method](name)
+  if (document.body) {
+    document.body.classList[method](name)
+  }
+}
+
+function applyMenmenReadonlyClass (on) {
+  applyMenmenClass('menmen-readonly', on)
+  if (on) applyMenmenClass('menmen-can-edit', false)
+}
+
+function applyMenmenCanEditClass (on) {
+  applyMenmenClass('menmen-can-edit', on)
+  if (on) applyMenmenClass('menmen-readonly', false)
+}
+
+let menmenReadonly = !urlAllowsMenmenEdit()
+if (menmenReadonly) {
+  applyMenmenReadonlyClass(true)
+} else {
+  applyMenmenCanEditClass(true)
+}
 
 function applyMenmenReadonly () {
   menmenReadonly = true
-  $('body').addClass('menmen-readonly')
+  applyMenmenReadonlyClass(true)
   if (typeof editor !== 'undefined' && editor) {
     editor.setOption('readOnly', true)
   }
@@ -995,7 +1027,7 @@ function applyMenmenReadonly () {
 
 function applyMenmenEditable () {
   menmenReadonly = false
-  $('body').removeClass('menmen-readonly')
+  applyMenmenCanEditClass(true)
   if (typeof editor !== 'undefined' && editor) {
     editor.setOption('readOnly', false)
   }
@@ -1004,12 +1036,10 @@ function applyMenmenEditable () {
 
 const MENMEN_AVATAR_VISIBLE = 5
 
-/** 仅展示当前笔记内、未 idle 的协作者（socket 已按 note 房间隔离） */
+/** 头像与下拉：当前笔记里仍连着的人（编辑权、查看权都算；idle 仍停在文档里也算） */
 function filterMenmenOnlineUsers (list) {
   return deduplicateOnlineUsers(list || []).filter(function (user) {
-    if (!user || !user.name) return false
-    if (!user.idle) return true
-    return !!user.login
+    return !!(user && user.name)
   })
 }
 
@@ -1079,9 +1109,9 @@ function showStatus (type, num) {
       $('#online-user-list, #short-online-user-list').hide()
     } else {
       $('#online-user-list, #short-online-user-list').show()
-      window.__menmenOnlineUsers = onlineUsers
+      window.__menmenOnlineUsers = filterMenmenOnlineUsers(onlineUsers)
       try {
-        document.dispatchEvent(new CustomEvent('menmen-online-users', { detail: onlineUsers }))
+        document.dispatchEvent(new CustomEvent('menmen-online-users', { detail: window.__menmenOnlineUsers }))
       } catch (e) { /* ignore */ }
     }
     return
@@ -2965,7 +2995,7 @@ const shortOnlineUserList = new List('short-online-user-list', options)
 
 function updateOnlineStatus () {
   if (!window.loaded || !socket.connected) return
-  const _onlineUsers = deduplicateOnlineUsers(onlineUsers)
+  const _onlineUsers = filterMenmenOnlineUsers(onlineUsers)
   showStatus(statusType.online, _onlineUsers.length)
   const items = onlineUserList.items
   // update or remove current list items

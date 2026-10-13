@@ -27,6 +27,8 @@
 
 - `lib/realtime.js` `ifMayEdit`：缓存 miss 时用 `socket.menmenCanEdit` 兜底，避免 TTL 过期后误拒可写用户
 - 只读用户：`menmen-permission-denied` → `applyMenmenReadonly()` 隐藏 `.ui-mode-group` / 编辑区 / 工具栏，强制 View
+- 只读首屏：`?canEdit=0` 时 `showNote` 直接给 body `menmen-readonly`，并在 header 前用 inline script 加 class，避免等 socket 时闪编辑按钮
+- 在线成员：进程内 Socket.IO 房间（不走 Redis）。停在这篇文档里的编辑者、查看者都显示；清理器去掉已断开连接。心跳在 socket.io 2 构造参数生效
 
 ## 测试
 

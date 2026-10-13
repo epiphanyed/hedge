@@ -219,12 +219,34 @@ body.menmen-custom-ui.menmen-mobile-ua .ui-view-area {
   padding-right: 0;
 }
 
-/* 无编辑权：隐藏预览/分栏/编辑切换，只保留查看 */
+/*
+ * 编辑切换默认隐藏：无 canEdit=1 / 无 menmen-can-edit 时不露出分栏和铅笔。
+ * 有编辑权由 html/body.menmen-can-edit 再打开（socket 授权也会加这个 class）。
+ */
+html.menmen-custom-ui .ui-mode-group,
+html.menmen-custom-ui .ui-mode,
+html.menmen-readonly .ui-mode-group,
+html.menmen-readonly .ui-mode,
+body.menmen-custom-ui .ui-mode-group,
+body.menmen-custom-ui .ui-mode,
 body.menmen-readonly .ui-mode-group,
 body.menmen-readonly .ui-mode,
+html.menmen-readonly .ui-edit-area,
+html.menmen-readonly .toolbar,
 body.menmen-readonly .ui-edit-area,
 body.menmen-readonly .toolbar {
   display: none !important;
+}
+
+html.menmen-can-edit:not(.menmen-readonly) .ui-mode-group,
+body.menmen-custom-ui.menmen-can-edit:not(.menmen-readonly) .ui-mode-group {
+  display: inline-block !important;
+  vertical-align: middle;
+}
+
+html.menmen-can-edit:not(.menmen-readonly) .ui-mode,
+body.menmen-custom-ui.menmen-can-edit:not(.menmen-readonly) .ui-mode {
+  display: inline-block !important;
 }
 
 /* 在线协作者：右上角纯头像组，隐藏原厂 ONLINE/OFFLINE 标签 */
@@ -242,6 +264,13 @@ body.menmen-readonly .toolbar {
 
 .menmen-custom-ui #online-user-list .label,
 .menmen-custom-ui .nav-status .label {
+  display: none !important;
+}
+
+.menmen-custom-ui #online-user-list .ui-user-item:has(.ui-user-status-idle),
+.menmen-custom-ui #online-user-list .ui-user-item:has(.ui-user-status-offline),
+.menmen-custom-ui #short-online-user-list .ui-user-item:has(.ui-user-status-idle),
+.menmen-custom-ui #short-online-user-list .ui-user-item:has(.ui-user-status-offline) {
   display: none !important;
 }
 

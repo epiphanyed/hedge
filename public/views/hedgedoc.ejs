@@ -1,11 +1,21 @@
  <!DOCTYPE html>
-<html>
+<html<%
+    var menmenHtmlClass = [];
+    if (typeof menmenCanEdit !== 'undefined' && menmenCanEdit) menmenHtmlClass.push('menmen-can-edit');
+    else if (typeof menmenCustomUI !== 'undefined' && menmenCustomUI) menmenHtmlClass.push('menmen-readonly');
+    if (menmenHtmlClass.length) { %> class="<%= menmenHtmlClass.join(' ') %>"<% } %>>
 
 <head>
     <%- include('hedgedoc/head') %>
 </head>
 
-<body translate="no"<% if (typeof menmenCustomUI !== 'undefined' && menmenCustomUI) { %> class="menmen-custom-ui"<% } %>>
+<body translate="no"<%
+    var menmenBodyClass = [];
+    if (typeof menmenCustomUI !== 'undefined' && menmenCustomUI) menmenBodyClass.push('menmen-custom-ui');
+    if (typeof menmenCanEdit !== 'undefined' && menmenCanEdit) menmenBodyClass.push('menmen-can-edit');
+    else if (typeof menmenCustomUI !== 'undefined' && menmenCustomUI) menmenBodyClass.push('menmen-readonly');
+    if (menmenBodyClass.length) { %> class="<%= menmenBodyClass.join(' ') %>"<% } %>>
+    <script nonce="<%= cspNonce %>">(function(){try{var v=new URLSearchParams(location.search).get('canEdit');if(v==='1'){document.documentElement.classList.add('menmen-can-edit');document.body.classList.add('menmen-can-edit');document.documentElement.classList.remove('menmen-readonly');document.body.classList.remove('menmen-readonly');}else{document.documentElement.classList.add('menmen-readonly');document.body.classList.add('menmen-readonly');document.documentElement.classList.remove('menmen-can-edit');document.body.classList.remove('menmen-can-edit');}}catch(e){}})();</script>
     <%- include('hedgedoc/header') %>
     <%- include('hedgedoc/body') %>
     <%- include('hedgedoc/footer') %>
