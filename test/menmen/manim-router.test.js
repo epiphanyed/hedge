@@ -73,11 +73,25 @@ function buildApp (options) {
     resolveVisibility: async function () { return options.visibility || 'private' },
     sendRenderJson: function (res, status, body) { res.status(status).json(body == null ? {} : body) }
   })
+  if (!options.menmenPerm.checkCanEdit) {
+    options.menmenPerm.checkCanEdit = async function () {
+      return options.canEdit !== false
+    }
+  }
+  if (!options.menmenPerm.getUsernameFromUser) {
+    options.menmenPerm.getUsernameFromUser = function () { return 'tester' }
+  }
   mock.stop('../../lib/web/manimRouter')
   const router = mock.reRequire('../../lib/web/manimRouter')
   const app = express()
   app.use(function (req, res, next) {
     req.isAuthenticated = function () { return !!options.authenticated }
+    if (options.authenticated) {
+      req.user = req.user || {
+        profile: JSON.stringify({ username: 'tester' }),
+        profileid: '1'
+      }
+    }
     next()
   })
   app.use(router)
@@ -115,6 +129,22 @@ describe('manimRouter', function () {
     })
     const res = await requestJson(app, 'POST', '/api/manim/render', { code: 'x', noteId: 'a_42' })
     assert.strictEqual(res.status, 404)
+  })
+
+  it('returns 403 when logged in but cannot edit note', async function () {
+    const app = buildApp({
+      config: enabledConfig,
+      menmenPerm: {
+        resolveArticleId: async () => 42,
+        checkCanEdit: async () => false,
+        getUsernameFromUser: () => 'tester'
+      },
+      fetch: async () => ({ status: 200, text: async () => '{}' }),
+      authenticated: true,
+      canEdit: false
+    })
+    const res = await requestJson(app, 'POST', '/api/manim/render', { code: 'x', noteId: 'a_42' })
+    assert.strictEqual(res.status, 403)
   })
 
   it('returns 403 when anonymous', async function () {
